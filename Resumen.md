@@ -1,6 +1,7 @@
 ######<p style="text-align: right;">Augusto Ariztía Léniz</p>
 #<center>Programación Avanzada
 
+El siguiente texto trata de ser un resumen del ramo IIC2233 - Programación Avanzada. Casi toda la información y ejemplos que se usan fueron sacados del material de clases del primer semestre del año 2016 con los profesor Karim Pichara y Christian Pieringer.
 
 
 ##Índice
@@ -35,7 +36,11 @@ Si queremos saber más información sobre una clase tenemos que usar la función
 Para evitar que se pueda acceder directamente a un atributo, o un método, hay que hacerlo privado, eso se hace defininiéndolo con un "_" primero, o doble si queremos que sea más difícil, pero hay que tener en cuenta que siempre se va a poder acceder de alguna manera.
 
 ###1.2 Herencia
-La herencia es una relación de especialización entre clases. Una clase _hereda_ los atributos y métodos de una "super clase". Además puede definir los suyos propios y/o cambiarlos. Cambiar un método de la super clase se llama _overriding_.
+La herencia es una relación de especialización entre clases. Una clase _hereda_ los atributos y métodos de una "super clase". Además puede definir los suyos propios y/o cambiarlos. Cambiar un método de la super clase se llama _overriding_. Para crear una clase que hereda de una superclase se hace:
+
+```python
+class Clase(SuperClase):
+```
 Cuando se hereda de más de una clase podemos tener el problema del diamante, en el que terminamos llamando dos veces a una clase más alta. En Python esto pasa porque todas las clases heredan de ```object```. Para evitarlo, al instanciar una clase llamamos al método ```super()``` y Python automáticamente va a la clase que sigue para arriba. Para ver la jerarquía de las clases de la cual hereda nuestra clase usamos ```NombreClase.__mro__```.
 ####Uso de *args y **kwargs
 Los args y los kwargs sirven para pasarle a una funcion una cantidad variable de datos, como tambien para poder pasarle listas o tuplas.
@@ -164,7 +169,7 @@ III) **Herencia**: Lo mismo explicado anteriormente en 1.2. Se representa:
 ##2. <a name="edd"></a>Estructuras de Datos
 
 ###2.1 Introduccion
-Las estrcturas de datos son distintas formas de agrupar información. La estructura de datos más simple es una clase vacía, a la cual después se le agregan atributos. Claramente esta no es la forma más eficiente de trabajar. En Python hay varios tipos de estructuras distintos, y la elección de una depende de lo que queramos hacer.
+Las estructuras de datos son distintas formas de agrupar información. La estructura de datos más simple es una clase vacía, a la cual después se le agregan atributos. Claramente esta no es la forma más eficiente de trabajar. En Python hay varios tipos de estructuras distintas, y la elección de una depende de lo que queramos hacer.
 #####2.1.1 Estructuras secuenciales basadas en arreglos
 Son estructuras que básicamente ordenan varios elementos en una secuencia según el orden en que fueron agregados. Se puede acceder a un elemento segun el índice de su lugar, estos parten del 0 hasta el (largo del arreglo -1). Dentro de esta categoría están los _strings_, las _tuplas_ y las _listas_.
 
@@ -190,11 +195,31 @@ Para usar pilas en Python, se debe trabajar con listas y algunos de sus métodos
 
 |Comando de Python       | Acción                                     |
 |------------------------|--------------------------------------------|
-| ```Pila.append(item)```| Agrega item al final de la pila            |
-|```Pila.pop()```        | Extrae el último elemento y lo retorna     |
-|```Pila[-1]```          | Retorna el último elemento                 |
-|```len(Pila)```         | Retorna la cantidad de elementos en la pila|
-|```len(Pila) == 0```    | Indica si la pila esta vacía               |
+| ```pila.append(item)```| Agrega item al final de la pila            |
+|```pila.pop()```        | Extrae el último elemento y lo retorna     |
+|```pila[-1]```          | Retorna el último elemento                 |
+|```len(pila)```         | Retorna la cantidad de elementos en la pila|
+|```len(pila) == 0```    | Indica si la pila esta vacía               |
+
+###2.3 Colas
+
+Las colas ordenan sus elementos según First In First Out (FIFO). Es decir el primero que llega es el primero que sale. Las colas en la vida real funcionan así: la primera persona que llega a una caja de supermercado es la primera en ser atendida.
+
+Para usar colas en Python se debe importar el módulo **deque** de la librería _collections_. Los métodos implementados para las colas (deques) son:
+
+|Comando de Python       | Acción                                     |
+|------------------------|--------------------------------------------|
+| ```deque.append(item)```| Agrega un item a la cola                  |
+|```deque.popleft()```   | Extrae el primer elemento y lo retorna     |
+|```deque[-1]```         | Retorna el primer elemento                 |
+|```len(deque)```        | Retorna la cantidad de elementos en la cola|
+|```len(deque) == 0```   | Indica si la cola esta vacía               |
+
+###2.4 Diccionarios
+
+###2.5 Sets
+
+###2.6 Árboles
 
 ##3. <a name="functional"></a>Functional
 
