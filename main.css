@@ -10,6 +10,7 @@ header {
 
 header nav {
 	display: flex;
+	align-items:center;
 	justify-content: flex-end;
 }
 
@@ -61,7 +62,7 @@ header a:hover {
 	border-width: 2px;
 	border-color: #fff;
 	color: #868686;
-	font-size: 200%;
+	font-size: 250%;
 	font-weight:300;
 }
 
@@ -69,4 +70,9 @@ header a:hover {
 	text-decoration: none;
 	color: #3f3e3e;
 	font-weight: 320;
+}
+
+#logo {
+	font-family: 'Lora', serif;
+	font-size: 300%;
 }
