@@ -121,7 +121,11 @@ header a:hover {
 }
 
 .contacto {
+	padding: 70px;
+}
+
+#texto_contacto {
 	color: #868686;
 	font-weight: 300;
-	font-size: 150%;
+	font-size: 2em;
 }
