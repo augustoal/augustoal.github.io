@@ -15,6 +15,7 @@ header nav {
 
 header a {
   padding: 0 20px;
+  font-size: 150%;
   margin: 0;
   color: #868686;
 }
@@ -28,26 +29,44 @@ header a:hover {
 #marca {
 	font-family: 'Lora', serif;
 	font-weight: 250;
-	font-size: 1000%;
+	font-size: 1750%;
 	color: #868686;
 	padding-bottom: 0px;
 	margin-bottom: 0px;
+	margin-top: 50px;
 }
 
 #joyas {
 	color: #868686;
 	padding-top: 0px;
-	margin-top: -15px;
-	font-size: 300%;
+	margin-top: -25px;
+	font-size: 500%;
 	font-weight: 300;
+	margin-bottom: 50px;
 }
 
 #inicio{
-	min-height: 400px;
+	
 	border-style: solid;
 	border-width: 10px;
 	border-color: #fff;
 	display:flex;
   	align-items:center;
   	justify-content:center;
+}
+
+.seccion {
+	padding: 30px;
+	border-style: solid;
+	border-width: 2px;
+	border-color: #fff;
+	color: #868686;
+	font-size: 200%;
+	font-weight:300;
+}
+
+.seccion:hover {
+	text-decoration: none;
+	color: #3f3e3e;
+	font-weight: 320;
 }
