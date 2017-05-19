@@ -30,7 +30,7 @@ def captureOutput_didOutputMetadataObjects_fromConnection_(_self, _cmd, _output,
 MetadataDelegate = create_objc_class('MetadataDelegate', methods=[captureOutput_didOutputMetadataObjects_fromConnection_], protocols=['AVCaptureMetadataOutputObjectsDelegate'])
 
 @on_main_thread
-def main():
+def lector():
 	global main_view
 	delegate = MetadataDelegate.new()
 	main_view = ui.View(frame=(0, 0, 400, 400))
@@ -69,10 +69,10 @@ def main():
 		return found_codes
 	else:
 		return None
-		#print('All scanned codes:\n' + '\n'.join(found_codes))
+	#print('All scanned codes:\n' + '\n'.join(found_codes))
 
 if __name__ == '__main__':
-	codigos = main()
+	codigos = lector()
 	if codigos:
 		print("Tipo de archivo: {}".format(type(codigos)))
 		print("Que códigos quieres guardar?")
