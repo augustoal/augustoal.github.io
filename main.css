@@ -1,131 +1,59 @@
+@font-face {
+    font-family: 'Gozam';
+    src: url('fonts/HomepageBaukasten-Bold.woff') format('woff'), /* Modern Browsers */
+       url('fonts/HomepageBaukasten-Bold.ttf')  format('truetype'), /* Safari, Android, iOS */
+       url('fonts/HomepageBaukasten-Bold.svg#svgFontName') format('svg'); /* Legacy iOS */
+     font-weight: 700;
+     font-style: normal;
+   }
+  
+  @font-face {
+    font-family: 'Gozam';
+    src: url('fonts/iCielGotham-Medium.woff') format('woff'), /* Modern Browsers */
+       url('fonts/iCielGotham-Medium.ttf')  format('truetype'), /* Safari, Android, iOS */
+       url('fonts/iCielGotham-Medium.svg#svgFontName') format('svg'); /* Legacy iOS */
+     font-weight: 400;
+     font-style: normal;
+   }
+  
+  @font-face {
+    font-family: 'Gozam';
+    src: url('fonts/Metropolis-ExtraLight.woff') format('woff'), /* Modern Browsers */
+       url('fonts/Metropolis-ExtraLight.ttf')  format('truetype'), /* Safari, Android, iOS */
+       url('fonts/Metropolis-ExtraLight.svg#svgFontName') format('svg'); /* Legacy iOS */
+     font-weight: 300;
+     font-style: normal;
+   }
+
+html {
+    height: 100%;
+}
+
 body {
-	font-family: 'Lato', sans-serif;
-	font-weight: 300;
-	background-color: #efefef;
+    background-color: #f3eee9;
+    min-height: 100%;
+    font-family: 'Gozam';
 }
 
-header {
-  padding: 20px 0;
+.tarjeta {
+    max-width: 100%;
+    box-shadow: -1px -1px 11px 9px #0000001a;
+    background-color: white;
+    border-radius: 10px;
+    padding: 1vh;
 }
 
-header nav {
-	display: flex;
-	align-items:center;
-	justify-content: flex-end;
+.jumbotron {
+    background-color: #ffffff00;
 }
 
-header a {
-  padding: 0 20px;
-  font-size: 150%;
-  margin: 0;
-  color: #868686;
+.vertical-center {
+    min-height: 100%;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
 }
 
-header a:hover {
-	color: #3f3e3e;
-	text-decoration: none;
-	font-weight: 320;
-}
-
-#marca {
-	font-family: 'Lora', serif;
-	font-weight: 250;
-	font-size: 1750%;
-	color: #868686;
-	padding-bottom: 0px;
-	margin-bottom: 0px;
-	margin-top: 50px;
-}
-
-#joyas {
-	color: #868686;
-	padding-top: 0px;
-	margin-top: -25px;
-	font-size: 500%;
-	font-weight: 300;
-	margin-bottom: 50px;
-}
-
-#inicio{
-	
-	border-style: solid;
-	border-width: 10px;
-	border-color: #fff;
-	display:flex;
-  	align-items:center;
-  	justify-content:center;
-}
-
-.seccion {
-	padding: 30px;
-	border-style: solid;
-	border-width: 2px;
-	border-color: #fff;
-	color: #868686;
-	font-size: 250%;
-	font-weight:300;
-}
-
-.seccion:hover {
-	text-decoration: none;
-	color: #3f3e3e;
-	font-weight: 320;
-}
-
-#logo {
-	font-family: 'Lora', serif;
-	font-size: 300%;
-}
-
-.titulo {
-	color: #868686;
-	text-align: center;
-	font-size: 500%;
-	font-weight: 300;
-	margin-bottom: 50px;
-}
-
-.galeria {
-	display: flex;
-  	flex-wrap: wrap;
-  	justify-content: center;
-}
-
-.item {
-	margin: 20px;
-}
-
-.imagen {
-	display: block;
-  	width: 400px;
-  	height: auto;
-	border: 10px solid #fff;
-}
-
-.precio {
-	color: #d3b4b8;
-	font-size: 150%;
-	font-weight: 400;
-}
-
-.nombre {
-	color:#868686;
-	font-size: 150%;
-}
-
-.texto {
-	padding-top: 70px;
-	font-size: 150%;
-	color: #c3a6aa;
-	font-weight: 400;
-}
-
-.contacto {
-	padding: 70px;
-}
-
-#texto_contacto {
-	color: #868686;
-	font-weight: 300;
-	font-size: 2em;
+.texto-home {
+    font-size: 1.5rem;
 }
