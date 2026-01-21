@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Hand Tracking Pong – Augusto Ariztia</title>
+
+  <!-- Global site CSS (same as home) -->
+  <link rel="stylesheet" href="../assets/css/styles.css" />
+
+  <!-- Page-specific minimal layout helpers (no duplicate theme styles) -->
+  <style>
+    .backlink{
+      display:inline-flex; align-items:center; gap:8px;
+      color:var(--muted); text-decoration:none; margin:8px 0 18px;
+    }
+    .backlink:hover{ color:var(--text); }
+
+    .page-title{
+      margin:0 0 14px;
+      font-size:1.35rem; font-weight:650; letter-spacing:-0.01em;
+    }
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:18px;
+      box-shadow:var(--shadow);
+      padding:18px;
+      margin-top:18px;
+    }
+
+    .stage{
+      width:min(1100px, 96vw);
+      display:grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap:12px;
+      align-items:stretch;
+    }
+    @media (max-width: 960px){
+      .stage{ grid-template-columns: 1fr; }
+    }
+
+    .pane{
+      position:relative;
+      border:1px solid var(--border);
+      border-radius:14px;
+      overflow:hidden;
+      background:#000;
+      aspect-ratio:16/9;
+    }
+
+    video, canvas{
+      position:absolute; inset:0;
+      width:100%; height:100%;
+      object-fit:cover;
+      object-position:center;
+    }
+
+    /* Mirror the camera view AND overlay so it matches what the user sees */
+    .mirrored{ transform: scaleX(-1); }
+
+    .label{
+      position:absolute; left:10px; top:10px; z-index:5;
+      font-size:12px; padding:4px 8px; border-radius:999px;
+      background:rgba(15,23,42,.55);
+      border:1px solid rgba(148,163,184,.28);
+      color:#e7eef7;
+      backdrop-filter: blur(8px);
+    }
+
+    .hud{
+      position:absolute; right:10px; top:10px; z-index:5;
+      display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+      font-size:12px;
+    }
+    .pill{
+      padding:4px 8px; border-radius:999px;
+      background:rgba(15,23,42,.55);
+      border:1px solid rgba(148,163,184,.28);
+      color:#e7eef7;
+      backdrop-filter: blur(8px);
+    }
+
+    .controls{
+      display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+      margin-top:14px;
+    }
+    .btn{
+      cursor:pointer;
+      border-radius:12px;
+      border:1px solid var(--border);
+      background:transparent;
+      color:var(--text);
+      padding:8px 10px;
+      font-size:12px;
+    }
+    .btn:hover{ border-color: rgba(163,31,52,0.35); }
+
+    .hint{
+      margin-top:12px;
+      color:var(--muted);
+      font-size:0.95rem;
+      line-height:1.35;
+    }
+    .hint.ok{ color: rgba(166,255,207,.95); }
+    .hint.error{ color: rgba(255,180,180,.95); }
+
+    .kbd{
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size:12px;
+      padding:2px 6px;
+      border:1px solid rgba(148,163,184,.35);
+      border-radius:6px;
+      color:#e7eef7;
+    }
+  </style>
+
+  <!-- MediaPipe Hands + utils -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+</head>
+
+<body>
+  <header>
+    <div class="brand">
+      <h1>Augusto Ariztia</h1>
+      <p class="tagline">MIT Sloan MBA • Product + AI • Cambridge, MA</p>
+    </div>
+
+    <div class="header-actions">
+      <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle theme">◐</button>
+
+      <a class="social-link"
+         href="https://www.linkedin.com/in/augusto-ariztia-leniz-13189a149"
+         target="_blank"
+         rel="noopener noreferrer"
+         aria-label="LinkedIn profile">
+        <img src="../assets/logos/li-logo.png" alt="LinkedIn" />
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <a class="backlink" href="../">← Back to projects</a>
+    <h2 class="page-title">Hand Tracking Pong</h2>
+
+    <div class="card">
+      <div class="stage">
+        <!-- Camera view (mirrored) + optional landmarks -->
+        <div class="pane">
+          <div class="label">Camera (mirrored)</div>
+          <div class="hud">
+            <div class="pill">Control: Index fingertip</div>
+            <div class="pill" id="handState">Hand: —</div>
+          </div>
+          <video id="video" class="mirrored" playsinline autoplay muted></video>
+          <canvas id="overlay" class="mirrored"></canvas>
+        </div>
+
+        <!-- Game canvas -->
+        <div class="pane">
+          <div class="label">Pong</div>
+          <div class="hud">
+            <div class="pill">You: <span id="scoreYou">0</span></div>
+            <div class="pill">CPU: <span id="scoreCpu">0</span></div>
+            <div class="pill"><span class="kbd">Space</span> pause</div>
+          </div>
+          <canvas id="game"></canvas>
+        </div>
+      </div>
+
+      <div id="status" class="hint">
+        Allow camera access. Move your hand: your paddle follows your index fingertip.
+      </div>
+
+      <div class="controls">
+        <button id="toggleDebug" class="btn" type="button">Debug: OFF</button>
+        <button id="reset" class="btn" type="button">Reset</button>
+        <span class="hint" style="margin:0;">Tip: bright light + full hand in frame works best.</span>
+      </div>
+    </div>
+  </main>
+
+  <footer>© 2026 Augusto Ariztia</footer>
+
+  <!-- Shared theme script (same as home) -->
+  <script src="../assets/js/theme.js"></script>
+
+  <!-- Project script -->
+  <script src="./hand-tracking-pong.js"></script>
+</body>
+</html>

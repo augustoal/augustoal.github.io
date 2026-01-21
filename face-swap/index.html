@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Face Swap – Augusto Ariztia</title>
+
+  <!-- Global site CSS -->
+  <link rel="stylesheet" href="../assets/css/styles.css" />
+
+  <!-- Project-only layout helpers (minimal; uses your global tokens) -->
+  <style>
+    .backlink {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      text-decoration: none;
+      margin: 8px 0 18px;
+    }
+    .backlink:hover { color: var(--text); }
+
+    .page-title {
+      margin: 0 0 14px;
+      font-size: 1.35rem;
+      font-weight: 650;
+      letter-spacing: -0.01em;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+      margin-top: 18px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    @media (max-width: 960px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    .pane {
+      position: relative;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      background: #000;
+      aspect-ratio: 16 / 9;
+    }
+    .pane canvas, .pane video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+    }
+
+    .pane-label {
+      position: absolute;
+      left: 10px;
+      top: 10px;
+      z-index: 50;
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.55);
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      color: #e7eef7;
+      backdrop-filter: blur(8px);
+    }
+
+    /* Layering */
+    #video { z-index: 1; }
+    #overlayCanvas { z-index: 5; pointer-events: none; opacity: 0; } /* shown only in overlay mode */
+    #meshCanvas { z-index: 6; pointer-events: none; }
+    #sideCanvas { z-index: 2; } /* in its own pane */
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .btn, .file, .range {
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      border-radius: 12px;
+      padding: 8px 10px;
+      font-size: 12px;
+    }
+    .btn { cursor: pointer; }
+    .btn:hover { border-color: rgba(163, 31, 52, 0.35); }
+
+    .range { padding: 0; height: 30px; }
+    .tiny { font-size: 12px; color: var(--muted); }
+
+    .status {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    .status.ok { color: rgba(166, 255, 207, 0.95); }
+    .status.error { color: rgba(255, 180, 180, 0.95); }
+
+    /* Overlay mode: hide right pane + show overlay canvas */
+    body.overlay-mode .rightPane { display: none; }
+    body.overlay-mode #overlayCanvas { opacity: var(--overlayOpacity, 0.85); }
+    body.overlay-mode .layout { grid-template-columns: 1fr; }
+  </style>
+
+  <!-- MediaPipe -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+
+  <!-- Delaunay -->
+  <script src="https://cdn.jsdelivr.net/npm/delaunator@5.0.0/delaunator.min.js"></script>
+</head>
+
+<body>
+  <header>
+    <div class="brand">
+      <h1>Augusto Ariztia</h1>
+      <p class="tagline">MIT Sloan MBA • Product + AI • Cambridge, MA</p>
+    </div>
+
+    <div class="header-actions">
+      <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle theme">◐</button>
+
+      <a class="social-link"
+         href="https://www.linkedin.com/in/augusto-ariztia-leniz-13189a149"
+         target="_blank"
+         rel="noopener noreferrer"
+         aria-label="LinkedIn profile">
+        <img src="../assets/logos/li-logo.png" alt="LinkedIn" />
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <a class="backlink" href="../">← Back to projects</a>
+    <h2 class="page-title">Face Swap</h2>
+
+    <div class="card">
+      <div class="layout">
+        <div class="pane" id="leftPane">
+          <span class="pane-label">Live camera</span>
+          <video id="video" playsinline autoplay muted></video>
+          <canvas id="overlayCanvas"></canvas>
+          <canvas id="meshCanvas"></canvas>
+        </div>
+
+        <div class="pane rightPane" id="rightPane">
+          <span class="pane-label">Animated photo</span>
+          <canvas id="sideCanvas"></canvas>
+        </div>
+      </div>
+
+      <div id="status" class="status">
+        1) Allow camera access. 2) Upload a front-facing photo.
+      </div>
+      <div class="tiny" style="margin-top:8px;">
+        This is a <b>2D triangle warp</b> (fast + fun). Large head turns may break the illusion.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="controls">
+        <input id="file" class="file" type="file" accept="image/*" />
+
+        <button id="clear" class="btn" type="button">Clear photo</button>
+
+        <button id="toggleMode" class="btn" type="button">Mode: Side-by-side</button>
+
+        <label id="opacityWrap" class="tiny" style="display:none; align-items:center; gap:8px;">
+          <span>Opacity</span>
+          <input id="opacity" class="range" type="range" min="0" max="100" value="85" />
+          <span id="opacityVal">85%</span>
+        </label>
+
+        <span class="tiny">Tip: good lighting, no rotation, face centered.</span>
+      </div>
+    </div>
+  </main>
+
+  <footer>© 2026 Augusto Ariztia</footer>
+
+  <!-- Shared theme script (same as home) -->
+  <script src="../assets/js/theme.js"></script>
+
+  <!-- Project script -->
+  <script src="./face-swap.js"></script>
+</body>
+</html>
