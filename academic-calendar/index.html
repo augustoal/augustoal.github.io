@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Academic Calendar</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#f5f5f5" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="AcadCal" />
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23f0f0f0'/><text y='.85em' x='10' font-size='75'>📅</text></svg>" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f2f2f7;
+      --surface: #ffffff;
+      --text: #111111;
+      --text-muted: #6e6e73;
+      --border: #d1d1d6;
+      --weekend: #e8e8ed;
+      --weekend-text: #8e8e93;
+      --today-bg: rgba(255, 149, 0, 0.12);
+      --today-border: #ff9500;
+      --week-sep: #c8c8cc;
+      --toolbar-bg: #ffffff;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08);
+      --radius: 10px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1c1c1e;
+        --surface: #2c2c2e;
+        --text: #f2f2f7;
+        --text-muted: #8e8e93;
+        --border: #3a3a3c;
+        --weekend: #252527;
+        --weekend-text: #636366;
+        --today-bg: rgba(255, 159, 10, 0.15);
+        --today-border: #ff9f0a;
+        --week-sep: #3a3a3c;
+        --toolbar-bg: #2c2c2e;
+        --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      }
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      padding-bottom: env(safe-area-inset-bottom, 16px);
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--toolbar-bg);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 20px 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: var(--shadow);
+    }
+
+    header h1 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      margin-bottom: 10px;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      transition: opacity 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn:active { opacity: 0.6; }
+
+    .btn-primary {
+      background: #007aff;
+      color: #fff;
+      border-color: #007aff;
+    }
+
+    .btn-danger {
+      background: transparent;
+      color: #ff3b30;
+      border-color: #ff3b30;
+    }
+
+    .btn-install {
+      background: #34c759;
+      color: #fff;
+      border-color: #34c759;
+    }
+
+    #install-btn { display: none; }
+
+    /* ── Legend ── */
+    #legend {
+      display: none;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 10px 20px 0;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ── Main ── */
+    main {
+      padding: 16px 12px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    /* ── Empty state ── */
+    #empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+
+    #empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+    #empty-state p { font-size: 0.9rem; line-height: 1.5; }
+
+    /* ── Calendar table ── */
+    #calendar-container { display: none; }
+
+    .week-block {
+      margin-bottom: 8px;
+      background: var(--surface);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead th {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      padding: 8px 10px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    thead th:first-child { width: 90px; text-align: center; }
+    thead th:nth-child(2) { width: 36%; }
+
+    td {
+      padding: 8px 10px;
+      font-size: 0.82rem;
+      vertical-align: middle;
+      border-bottom: 1px solid var(--border);
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    /* Date cell */
+    td.date-cell {
+      text-align: center;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      white-space: nowrap;
+      vertical-align: middle;
+      border-right: 1px solid var(--border);
+    }
+
+    td.date-cell .day-name {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      display: block;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+
+    td.date-cell .day-num {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1;
+    }
+
+    td.date-cell .month-label {
+      font-size: 0.62rem;
+      color: var(--text-muted);
+      margin-top: 1px;
+      display: block;
+    }
+
+    /* Course cell */
+    td.course-cell {
+      font-weight: 600;
+      font-size: 0.78rem;
+      padding-left: 12px;
+      border-left: 3px solid transparent;
+    }
+
+    /* Description cell */
+    td.desc-cell {
+      color: var(--text);
+      font-size: 0.82rem;
+    }
+
+    /* Weekend rows */
+    tr.weekend td {
+      background: var(--weekend);
+      color: var(--weekend-text);
+    }
+
+    tr.weekend td.date-cell .day-num { color: var(--weekend-text); }
+
+    tr.weekend td.desc-cell,
+    tr.weekend td.course-cell { color: var(--weekend-text); }
+
+    /* Empty weekday rows */
+    tr.empty-day td.course-cell,
+    tr.empty-day td.desc-cell {
+      color: var(--text-muted);
+    }
+
+    /* Today */
+    tr.today td { background: var(--today-bg) !important; }
+    tr.today td.date-cell {
+      border-right-color: var(--today-border);
+    }
+    tr.today td.date-cell .day-num {
+      color: var(--today-border);
+    }
+
+    /* ── Confirm modal ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border-radius: 14px;
+      padding: 24px 20px;
+      max-width: 320px;
+      width: 100%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    }
+
+    .modal h2 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+    .modal p { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5; }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    /* ── CSV file input ── */
+    #csv-input { display: none; }
+
+    @media (max-width: 480px) {
+      header { padding: 12px 14px 10px; }
+      main { padding: 10px 8px; }
+      thead th:first-child { width: 72px; }
+      td { padding: 7px 8px; font-size: 0.78rem; }
+      td.date-cell .day-num { font-size: 0.9rem; }
+      thead th:nth-child(2) { width: 32%; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>📅 Academic Calendar</h1>
+    <div class="toolbar">
+      <button class="btn btn-primary" id="upload-btn">⬆ Import CSV</button>
+      <input type="file" id="csv-input" accept=".csv,text/csv" />
+      <button class="btn btn-danger" id="clear-btn">🗑 Clear</button>
+      <button class="btn btn-install" id="install-btn">➕ Add to Home</button>
+    </div>
+  </header>
+
+  <div id="legend"></div>
+
+  <main>
+    <div id="empty-state">
+      <div class="icon">📋</div>
+      <p>No hay eventos aún.<br />Importa un CSV con columnas <strong>fecha, curso, descripcion</strong>.</p>
+    </div>
+    <div id="calendar-container"></div>
+  </main>
+
+  <!-- Clear confirmation modal -->
+  <div class="modal-overlay" id="clear-modal">
+    <div class="modal">
+      <h2>Vaciar calendario</h2>
+      <p>¿Estás seguro de que querés eliminar todos los eventos? Esta acción no se puede deshacer.</p>
+      <div class="modal-actions">
+        <button class="btn" id="modal-cancel">Cancelar</button>
+        <button class="btn btn-danger" id="modal-confirm">Sí, vaciar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="calendar.js"></script>
+</body>
+</html>

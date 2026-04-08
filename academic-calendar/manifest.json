@@ -1,0 +1,19 @@
+{
+  "name": "Academic Calendar",
+  "short_name": "AcadCal",
+  "description": "Personal academic calendar with course deadlines and tasks",
+  "start_url": "/academic-calendar/",
+  "scope": "/academic-calendar/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f5f5f5",
+  "theme_color": "#f5f5f5",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
