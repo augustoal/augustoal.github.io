@@ -176,7 +176,7 @@ function renderCalendar(events) {
   }
 
   emptyState.style.display = 'none';
-  container.style.display = '';
+  container.style.display = 'block';
 
   const colorMap = buildCourseColorMap(events);
   const weeks    = buildWeekGrid(events);
