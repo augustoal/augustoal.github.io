@@ -1,4 +1,4 @@
-const CACHE_NAME = 'acadcal-v1';
+const CACHE_NAME = 'acadcal-v2';
 const ASSETS = [
   '/academic-calendar/',
   '/academic-calendar/index.html',
