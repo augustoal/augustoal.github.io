@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sudoku Solver (Hints) – Augusto Ariztia</title>
+
+  <link rel="stylesheet" href="../assets/css/styles.css" />
+
+  <style>
+    .backlink {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      text-decoration: none;
+      margin: 8px 0 18px;
+    }
+    .backlink:hover { color: var(--text); }
+
+    .page-title {
+      margin: 0 0 14px;
+      font-size: 1.35rem;
+      font-weight: 650;
+      letter-spacing: -0.01em;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+      margin-top: 18px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      align-items: start;
+    }
+
+    @media (max-width: 960px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    .pane {
+      position: relative;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      background: #000;
+      aspect-ratio: 1 / 1;
+    }
+
+    .pane canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+    }
+
+    #captureView {
+      display: block;
+      z-index: 4;
+      touch-action: none;
+    }
+
+    .pane-label {
+      position: absolute;
+      left: 10px;
+      top: 10px;
+      z-index: 10;
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.55);
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      color: #e7eef7;
+      backdrop-filter: blur(8px);
+    }
+    .pane-label.warn { background: rgba(117, 89, 10, 0.55); }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-top: 14px;
+    }
+
+    .btn {
+      cursor: pointer;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      padding: 8px 10px;
+      font-size: 12px;
+    }
+    .btn:hover { border-color: rgba(163, 31, 52, 0.35); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .status {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    .status.error { color: rgba(255, 180, 180, 0.95); }
+    .status.ok { color: rgba(166, 255, 207, 0.95); }
+
+    .hint-box {
+      margin-top: 8px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.93rem;
+    }
+
+    .sudoku-wrap {
+      display: grid;
+      grid-template-columns: repeat(9, minmax(30px, 1fr));
+      max-width: 460px;
+      margin-top: 12px;
+      border: 2px solid var(--text);
+      background: var(--card);
+    }
+
+    .sudoku-cell {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      text-align: center;
+      font-size: clamp(14px, 2vw, 21px);
+      font-weight: 650;
+      outline: none;
+    }
+
+    .sudoku-cell[data-right-border="true"] { border-right: 2px solid var(--text); }
+    .sudoku-cell[data-bottom-border="true"] { border-bottom: 2px solid var(--text); }
+
+    .sudoku-cell.given {
+      color: var(--text);
+      background: rgba(163, 31, 52, 0.08);
+    }
+
+    .sudoku-cell.hint {
+      color: rgba(72, 181, 117, 0.95);
+      background: rgba(72, 181, 117, 0.10);
+    }
+
+    .small {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+    .tiny-toggle {
+      margin-top: 6px;
+      font-size: 11px;
+      color: var(--muted);
+      opacity: 0.45;
+      cursor: pointer;
+      user-select: none;
+      display: inline-block;
+    }
+    .tiny-toggle:hover { opacity: 0.8; }
+
+    .debug-panel {
+      margin-top: 10px;
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      display: none;
+      background: rgba(15, 23, 42, 0.05);
+    }
+    .debug-panel.open { display: block; }
+    .debug-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(100px, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .debug-item canvas {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #111;
+    }
+    .debug-item label {
+      display: block;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .debug-table {
+      margin-top: 10px;
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .debug-table th,
+    .debug-table td {
+      border-bottom: 1px solid var(--border);
+      padding: 4px 6px;
+      text-align: left;
+    }
+    .debug-log {
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--muted);
+      max-height: 120px;
+      overflow: auto;
+      white-space: pre-wrap;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px;
+      background: rgba(15, 23, 42, 0.08);
+    }
+
+    .file-input {
+      display: none;
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      z-index: 1200;
+      background: rgba(7, 10, 18, 0.72);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal.open { display: flex; }
+
+    .modal-card {
+      width: min(92vw, 720px);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    .modal-pane {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #000;
+    }
+
+    .modal-pane video,
+    .modal-pane canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+    }
+
+    #modalGuide { pointer-events: none; z-index: 3; }
+
+    .modal-label {
+      position: absolute;
+      left: 10px;
+      top: 10px;
+      z-index: 4;
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.55);
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      color: #e7eef7;
+    }
+  </style>
+
+</head>
+
+<body>
+  <header>
+    <div class="brand">
+      <h1>Augusto Ariztia</h1>
+      <p class="tagline">MIT Sloan MBA • Product + AI • Cambridge, MA</p>
+    </div>
+
+    <div class="header-actions">
+      <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle theme">◐</button>
+
+      <a class="social-link"
+         href="https://www.linkedin.com/in/augusto-ariztia-leniz-13189a149"
+         target="_blank"
+         rel="noopener noreferrer"
+         aria-label="LinkedIn profile">
+        <img src="../assets/logos/li-logo.png" alt="LinkedIn" />
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <a class="backlink" href="../">← Back to projects</a>
+    <h2 class="page-title">Sudoku Solver (Hint by Hint)</h2>
+
+    <div class="card">
+      <div class="layout">
+        <div>
+          <div class="pane">
+            <span id="imageTag" class="pane-label warn">No image selected</span>
+            <canvas id="captureView"></canvas>
+          </div>
+
+          <div class="controls">
+            <button id="openCameraBtn" class="btn" type="button">Use camera</button>
+            <label class="btn" for="fileInput">Upload photo</label>
+            <input id="fileInput" class="file-input" type="file" accept="image/*" />
+            <button id="autoCropBtn" class="btn" type="button" disabled>Auto detect</button>
+            <button id="resetCropBtn" class="btn" type="button" disabled>Reset crop</button>
+            <button id="scanBtn" class="btn" type="button" disabled>Read Sudoku</button>
+            <button id="clearBtn" class="btn" type="button">Clear board</button>
+          </div>
+
+          <p id="status" class="status">Choose camera or upload a photo, then press Read Sudoku.</p>
+          <p class="small">Tip: drag the green box to move it, drag corner handles to resize it. Then press Read Sudoku.</p>
+          <span id="debugToggleBtn" class="tiny-toggle">debug</span>
+
+          <div id="debugPanel" class="debug-panel" aria-hidden="true">
+            <strong style="font-size:12px;">OCR Debug</strong>
+            <div class="debug-grid">
+              <div class="debug-item">
+                <label>Board Raw</label>
+                <canvas id="debugRawCanvas" width="220" height="220"></canvas>
+              </div>
+              <div class="debug-item">
+                <label>Board Clean</label>
+                <canvas id="debugCleanCanvas" width="220" height="220"></canvas>
+              </div>
+            </div>
+            <table class="debug-table">
+              <thead>
+                <tr>
+                  <th>Cell</th>
+                  <th>Raw</th>
+                  <th>Clean</th>
+                  <th>Chosen</th>
+                  <th>Accepted</th>
+                </tr>
+              </thead>
+              <tbody id="debugTableBody"></tbody>
+            </table>
+            <div id="debugLog" class="debug-log"></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="controls" style="margin-top:0;">
+            <button id="giveHintBtn" class="btn" type="button">Give hint</button>
+            <button id="resetHintsBtn" class="btn" type="button">Reset hints</button>
+          </div>
+
+          <div id="explanation" class="hint-box">Hints will appear here.</div>
+
+          <div id="sudokuGrid" class="sudoku-wrap" aria-label="Sudoku grid"></div>
+        </div>
+      </div>
+
+      <canvas id="snapshotCanvas" width="720" height="720" style="display:none;"></canvas>
+    </div>
+
+    <div id="cameraModal" class="modal" aria-hidden="true">
+      <div class="modal-card">
+        <div class="modal-pane">
+          <span class="modal-label">Center the Sudoku and capture</span>
+          <video id="modalVideo" playsinline autoplay muted></video>
+          <canvas id="modalGuide"></canvas>
+        </div>
+
+        <div class="controls">
+          <button id="modalCaptureBtn" class="btn" type="button" disabled>Capture</button>
+          <button id="modalCloseBtn" class="btn" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>© 2026 Augusto Ariztia</footer>
+
+  <script src="../assets/js/theme.js"></script>
+  <script src="./sudoku-solver.js"></script>
+</body>
+</html>

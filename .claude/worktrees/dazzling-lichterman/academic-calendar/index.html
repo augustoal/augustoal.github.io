@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -12,8 +12,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="AcadCal" />
-  <link rel="icon" type="image/png" href="icons/icon.png" />
-  <link rel="apple-touch-icon" href="icons/icon.png" />
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23f0f0f0'/><text y='.85em' x='10' font-size='75'>📅</text></svg>" />
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -313,42 +312,6 @@
     /* ── CSV file input ── */
     #csv-input { display: none; }
 
-    /* ── Add Event modal form ── */
-    .add-modal-content { max-width: 360px; }
-
-    .add-form {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-
-    .add-label {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: var(--text-muted);
-    }
-
-    .add-input {
-      padding: 8px 10px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: var(--bg);
-      color: var(--text);
-      font-size: 0.85rem;
-      font-family: inherit;
-      outline: none;
-      width: 100%;
-    }
-
-    .add-input:focus {
-      border-color: #007aff;
-      box-shadow: 0 0 0 3px rgba(0,122,255,0.15);
-    }
-
     @media (max-width: 480px) {
       header { padding: 12px 14px 10px; }
       main { padding: 10px 8px; }
@@ -364,7 +327,6 @@
   <header>
     <h1>📅 Academic Calendar</h1>
     <div class="toolbar">
-      <button class="btn btn-primary" id="add-btn">＋ Add Event</button>
       <button class="btn btn-primary" id="upload-btn">⬆ Import CSV</button>
       <input type="file" id="csv-input" accept=".csv,text/csv" />
       <button class="btn btn-danger" id="clear-btn">🗑 Clear</button>
@@ -377,7 +339,7 @@
   <main>
     <div id="empty-state">
       <div class="icon">📋</div>
-      <p>No events yet.<br />Import a CSV or add events manually. CSV format: <strong>date, course, description</strong>.</p>
+      <p>No hay eventos aún.<br />Importa un CSV con columnas <strong>fecha, curso, descripcion</strong>.</p>
     </div>
     <div id="calendar-container"></div>
   </main>
@@ -385,39 +347,11 @@
   <!-- Clear confirmation modal -->
   <div class="modal-overlay" id="clear-modal">
     <div class="modal">
-      <h2>Clear calendar</h2>
-      <p>Are you sure you want to delete all events? This action cannot be undone.</p>
+      <h2>Vaciar calendario</h2>
+      <p>¿Estás seguro de que querés eliminar todos los eventos? Esta acción no se puede deshacer.</p>
       <div class="modal-actions">
-        <button class="btn" id="modal-cancel">Cancel</button>
-        <button class="btn btn-danger" id="modal-confirm">Yes, clear</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Add event modal -->
-  <div class="modal-overlay" id="add-modal">
-    <div class="modal add-modal-content">
-      <h2>Add Event</h2>
-      <div class="add-form">
-        <label class="add-label">
-          <span>Date</span>
-          <input type="date" id="addDate" class="add-input" />
-        </label>
-        <label class="add-label">
-          <span>Course</span>
-          <input type="text" id="addCourse" class="add-input" list="courseList"
-                 autocomplete="off" placeholder="e.g. Math 101" />
-          <datalist id="courseList"></datalist>
-        </label>
-        <label class="add-label">
-          <span>Description</span>
-          <input type="text" id="addDesc" class="add-input"
-                 placeholder="e.g. Midterm exam" />
-        </label>
-      </div>
-      <div class="modal-actions">
-        <button class="btn" id="addCancelBtn">Cancel</button>
-        <button class="btn btn-primary" id="addConfirmBtn">Add</button>
+        <button class="btn" id="modal-cancel">Cancelar</button>
+        <button class="btn btn-danger" id="modal-confirm">Sí, vaciar</button>
       </div>
     </div>
   </div>

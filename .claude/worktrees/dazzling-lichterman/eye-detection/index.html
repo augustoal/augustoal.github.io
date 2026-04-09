@@ -1,0 +1,818 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Eye Pointer (MediaPipe FaceMesh + Calibración con Click)</title>
+
+  <!-- MediaPipe (CDN) - versiones fijas -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3/drawing_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/face_mesh.js"></script>
+
+  <style>
+    :root{
+      --bg:#0b0f17;
+      --panel:rgba(255,255,255,0.08);
+      --text:rgba(255,255,255,0.92);
+      --muted:rgba(255,255,255,0.65);
+      --accent:#7aa2ff;
+      --ok:#61d095;
+      --warn:#ffcc66;
+      --bad:#ff6b6b;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
+      font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    #app{height:100%;display:grid;grid-template-rows:auto 1fr}
+
+    header{
+      padding:12px 14px;display:flex;gap:10px;align-items:center;justify-content:space-between;
+      border-bottom:1px solid rgba(255,255,255,0.08)
+    }
+    header .left{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    header .title{font-weight:800;letter-spacing:.2px}
+    .pill{padding:6px 10px;border-radius:999px;background:var(--panel);font-size:12px;color:var(--muted)}
+    header .right{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+    button{
+      border:0;border-radius:12px;padding:10px 12px;background:rgba(255,255,255,0.12);
+      color:var(--text);font-weight:700;cursor:pointer;touch-action:manipulation
+    }
+    button:hover{background:rgba(255,255,255,0.16)}
+    button.primary{background:rgba(122,162,255,0.25);border:1px solid rgba(122,162,255,0.35)}
+    button.primary:hover{background:rgba(122,162,255,0.32)}
+    button.good{background:rgba(97,208,149,0.22);border:1px solid rgba(97,208,149,0.35)}
+    button.good:hover{background:rgba(97,208,149,0.28)}
+    button.danger{background:rgba(255,107,107,0.18);border:1px solid rgba(255,107,107,0.28)}
+    button.danger:hover{background:rgba(255,107,107,0.22)}
+    button:disabled{opacity:.45;cursor:not-allowed}
+
+    /* === LAYOUT NUEVO: video arriba, HUD abajo (NO se superponen) === */
+    #stage{
+      height:100%;
+      display:grid;
+      grid-template-rows: 1fr auto;
+      overflow:hidden;
+    }
+
+    #view{
+      position:relative;
+      overflow:hidden;
+      background: #05070c;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    /* Video y overlay espejados */
+    #video,#overlay{
+      position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+      transform:scaleX(-1);
+      z-index:1;
+    }
+
+    /* Dots siempre encima del video */
+    #targetDot,#pointerDot{
+      position:absolute;
+      width:22px;height:22px;border-radius:50%;
+      transform:translate(-50%,-50%);
+      display:none;
+      pointer-events:none;
+      z-index:20;
+    }
+    #targetDot{
+      background:rgba(255,255,255,0.92);
+      box-shadow:0 0 0 10px rgba(122,162,255,0.22),0 10px 40px rgba(0,0,0,0.45);
+    }
+    #pointerDot{
+      width:18px;height:18px;
+      background:rgba(97,208,149,0.95);
+      box-shadow:0 0 0 10px rgba(97,208,149,0.18),0 10px 40px rgba(0,0,0,0.45);
+    }
+
+    /* HUD ahora es una banda inferior */
+    #hud{
+      padding: 12px;
+      display:grid;
+      gap:10px;
+      background: linear-gradient(to bottom, rgba(11,15,23,0.65), rgba(11,15,23,0.95));
+    }
+    .card{
+      background:var(--panel);border:1px solid rgba(255,255,255,0.10);
+      border-radius:16px;padding:12px;backdrop-filter:blur(10px);
+    }
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .spacer{flex:1}
+    .muted{color:var(--muted)}
+    .small{font-size:12px}
+    .big{font-size:16px;font-weight:800}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    @media (max-width:680px){.grid2{grid-template-columns:1fr}}
+    .kv{display:grid;grid-template-columns:130px 1fr;gap:8px;align-items:center}
+    .kv .k{color:var(--muted);font-size:12px}
+    .kv .v{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:rgba(255,255,255,0.85)}
+    input[type="range"]{width:180px}
+  </style>
+</head>
+
+<body>
+<div id="app">
+  <header>
+    <div class="left">
+      <div class="title">Eye Pointer (MediaPipe)</div>
+      <div class="pill" id="statusPill">Listo para iniciar</div>
+      <div class="pill">HTTPS o localhost para cámara</div>
+    </div>
+    <div class="right">
+      <button class="primary" id="btnStart">Iniciar cámara</button>
+      <button class="good" id="btnCalibrate" disabled>Calibrar</button>
+      <button class="good" id="btnCapture" disabled>Capturar punto</button>
+      <button class="danger" id="btnReset" disabled>Reset</button>
+    </div>
+  </header>
+
+  <div id="stage">
+    <!-- VIDEO AREA -->
+    <div id="view">
+      <video id="video" playsinline autoplay muted></video>
+      <canvas id="overlay"></canvas>
+      <div id="targetDot"></div>
+      <div id="pointerDot"></div>
+    </div>
+
+    <!-- HUD AREA -->
+    <div id="hud">
+      <div class="card">
+        <div class="big" id="headline">Instrucciones</div>
+        <div class="muted" style="margin-top:6px; line-height:1.35;">
+          1) <b>Iniciar cámara</b>.<br/>
+          2) <b>Calibrar</b>: mira el punto blanco y aprieta <b>Capturar punto</b>.<br/>
+          3) Al terminar, se activa el puntero verde. Si pestañeas, el puntero se congela para no “saltar”.<br/>
+          <span class="small muted">Tip: durante calibración, mueve solo los ojos (cabeza quieta).</span>
+        </div>
+
+        <div style="height:10px"></div>
+
+        <div class="grid2">
+          <div class="card" style="padding:10px;">
+            <div class="row">
+              <div class="small muted">Modo calibración</div>
+              <div class="spacer"></div>
+              <label class="small">
+                <input type="checkbox" id="chk9pts" checked />
+                9 puntos (mejor)
+              </label>
+            </div>
+
+            <div class="row" style="margin-top:8px;">
+              <div class="small muted">Suavizado</div>
+              <input type="range" id="rngSmooth" min="0" max="0.95" step="0.01" value="0.60" />
+              <div class="pill" id="smoothVal">0.60</div>
+            </div>
+
+            <div class="row" style="margin-top:8px;">
+              <div class="small muted">Ridge</div>
+              <input type="range" id="rngRidge" min="0" max="2" step="0.01" value="0.05" />
+              <div class="pill" id="ridgeVal">0.05</div>
+            </div>
+
+            <div class="row" style="margin-top:8px;">
+              <div class="small muted">Anti-parpadeo</div>
+              <input type="range" id="rngBlink" min="0.1" max="0.8" step="0.01" value="0.38" />
+              <div class="pill" id="blinkVal">0.38</div>
+            </div>
+
+            <div class="row" style="margin-top:8px;">
+              <div class="small muted">Sensibilidad</div>
+              <input type="range" id="rngGain" min="0.6" max="3" step="0.01" value="1.60" />
+              <div class="pill" id="gainVal">1.60</div>
+            </div>
+          </div>
+
+          <div class="card" style="padding:10px;">
+            <div class="kv"><div class="k">Tracking</div><div class="v" id="kvTracking">—</div></div>
+            <div class="kv"><div class="k">Puntos</div><div class="v" id="kvPoints">0/0</div></div>
+            <div class="kv"><div class="k">Calibrado</div><div class="v" id="kvCalib">No</div></div>
+            <div class="kv"><div class="k">Punto actual</div><div class="v" id="kvPointName">—</div></div>
+            <div class="kv"><div class="k">Nota</div><div class="v" id="kvNote">—</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ---------- UI refs ----------
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('overlay');
+  const ctx = canvas.getContext('2d', { alpha: true });
+
+  const statusPill = document.getElementById('statusPill');
+  const headline = document.getElementById('headline');
+
+  const btnStart = document.getElementById('btnStart');
+  const btnCalibrate = document.getElementById('btnCalibrate');
+  const btnCapture = document.getElementById('btnCapture');
+  const btnReset = document.getElementById('btnReset');
+
+  const chk9pts = document.getElementById('chk9pts');
+  const rngSmooth = document.getElementById('rngSmooth');
+  const smoothVal = document.getElementById('smoothVal');
+  const rngRidge = document.getElementById('rngRidge');
+  const ridgeVal = document.getElementById('ridgeVal');
+  const rngBlink = document.getElementById('rngBlink');
+  const blinkVal = document.getElementById('blinkVal');
+  const rngGain = document.getElementById('rngGain');
+  const gainVal = document.getElementById('gainVal');
+
+  const targetDot = document.getElementById('targetDot');
+  const pointerDot = document.getElementById('pointerDot');
+
+  const kvTracking = document.getElementById('kvTracking');
+  const kvPoints = document.getElementById('kvPoints');
+  const kvCalib = document.getElementById('kvCalib');
+  const kvPointName = document.getElementById('kvPointName');
+  const kvNote = document.getElementById('kvNote');
+
+  // ---------- State ----------
+  let faceMesh = null;
+  let camera = null;
+  let running = false;
+
+  let latestLandmarks = null;
+  let latestConfidence = 0;
+
+  // calibration
+  let isCalibrating = false;
+  let calibPlan = [];
+  let calibIndex = 0;
+  let captured = []; // {x,y,f}
+
+  // regression weights + feature normalization
+  let Wx = null, Wy = null;
+  let mu = null, sigma = null; // per-feature normalization
+
+  // pointer
+  let smooth = parseFloat(rngSmooth.value);
+  let ridge = parseFloat(rngRidge.value);
+  let blinkFreeze = parseFloat(rngBlink.value);
+  let gain = parseFloat(rngGain.value);
+
+  let px = 0.5, py = 0.5;
+
+  // ---------- Helpers ----------
+  function clamp(v,a,b){ return Math.max(a, Math.min(b,v)); }
+  function setStatus(text, kind=""){
+    statusPill.textContent = text;
+    statusPill.style.border = "1px solid rgba(255,255,255,0.10)";
+    if (kind==="ok") statusPill.style.border = "1px solid rgba(97,208,149,0.45)";
+    if (kind==="warn") statusPill.style.border = "1px solid rgba(255,204,102,0.45)";
+    if (kind==="bad") statusPill.style.border = "1px solid rgba(255,107,107,0.45)";
+  }
+
+  function resizeCanvas(){
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  // ahora los dots se posicionan respecto a #view (video area completo)
+  function dotAt(dotEl, u, v){
+    const viewRect = document.getElementById('view').getBoundingClientRect();
+    const margin = 14;
+    const left = viewRect.left + margin;
+    const top  = viewRect.top  + margin;
+    const w = Math.max(1, viewRect.width  - 2*margin);
+    const h = Math.max(1, viewRect.height - 2*margin);
+    dotEl.style.left = (left + u*w) + "px";
+    dotEl.style.top  = (top  + v*h) + "px";
+  }
+
+  function showTarget(u,v){ targetDot.style.display="block"; dotAt(targetDot,u,v); }
+  function hideTarget(){ targetDot.style.display="none"; }
+  function showPointer(u,v){ pointerDot.style.display="block"; dotAt(pointerDot,u,v); }
+
+  // ---------- Math (ridge regression) ----------
+  function matMul(A,B){
+    const m=A.length, n=A[0].length, p=B[0].length;
+    const C=Array.from({length:m},()=>Array(p).fill(0));
+    for(let i=0;i<m;i++){
+      for(let k=0;k<n;k++){
+        const aik=A[i][k];
+        for(let j=0;j<p;j++) C[i][j]+=aik*B[k][j];
+      }
+    }
+    return C;
+  }
+  function matT(A){
+    const m=A.length, n=A[0].length;
+    const AT=Array.from({length:n},()=>Array(m).fill(0));
+    for(let i=0;i<m;i++) for(let j=0;j<n;j++) AT[j][i]=A[i][j];
+    return AT;
+  }
+  function matAdd(A,B){
+    const m=A.length,n=A[0].length;
+    const C=Array.from({length:m},()=>Array(n).fill(0));
+    for(let i=0;i<m;i++) for(let j=0;j<n;j++) C[i][j]=A[i][j]+B[i][j];
+    return C;
+  }
+  function identity(n, scale=1){
+    const I=Array.from({length:n},()=>Array(n).fill(0));
+    for(let i=0;i<n;i++) I[i][i]=scale;
+    return I;
+  }
+  function solveLinearSystem(A,b){
+    const n=A.length;
+    const M=A.map((row,i)=>row.slice().concat([b[i]]));
+    for(let col=0;col<n;col++){
+      let pivot=col;
+      for(let r=col+1;r<n;r++){
+        if(Math.abs(M[r][col])>Math.abs(M[pivot][col])) pivot=r;
+      }
+      if(Math.abs(M[pivot][col])<1e-12) return null;
+      if(pivot!==col){ const tmp=M[col]; M[col]=M[pivot]; M[pivot]=tmp; }
+      const div=M[col][col];
+      for(let c=col;c<=n;c++) M[col][c]/=div;
+      for(let r=0;r<n;r++){
+        if(r===col) continue;
+        const factor=M[r][col];
+        for(let c=col;c<=n;c++) M[r][c]-=factor*M[col][c];
+      }
+    }
+    return M.map(row=>row[n]);
+  }
+  function fitRidgeRegression(X,y,lambda){
+    const N=X.length, F=X[0].length;
+    const Xb=X.map(r=>[1,...r]);
+    const Xt=matT(Xb);
+    const XtX=matMul(Xt,Xb);
+    const reg=identity(F+1,lambda);
+    reg[0][0]=0;
+    const A=matAdd(XtX,reg);
+
+    const Xty=Array(F+1).fill(0);
+    for(let i=0;i<F+1;i++){
+      let s=0;
+      for(let n=0;n<N;n++) s+=Xt[i][n]*y[n];
+      Xty[i]=s;
+    }
+    return solveLinearSystem(A,Xty);
+  }
+  function predict(w,f){
+    if(!w) return 0.5;
+    let s=w[0];
+    for(let i=0;i<f.length;i++) s+=w[i+1]*f[i];
+    return s;
+  }
+
+  // ---------- FaceMesh feature extraction ----------
+  const IDX = {
+    R_EYE_OUT:33, R_EYE_IN:133, R_EYE_UP:159, R_EYE_DN:145,
+    L_EYE_OUT:263, L_EYE_IN:362, L_EYE_UP:386, L_EYE_DN:374,
+    NOSE_TIP:1, MID_BROW:9, CHIN:199,
+    R_IRIS:[469,470,471,472],
+    L_IRIS:[474,475,476,477]
+  };
+
+  function meanPoint(lms, ids){
+    let x=0,y=0;
+    for(const id of ids){ x+=lms[id].x; y+=lms[id].y; }
+    const n=ids.length;
+    return {x:x/n,y:y/n};
+  }
+
+  // Features “más movibles”: agregamos combinaciones y escalamos iris
+  function featureVector(lms){
+    const rOut=lms[IDX.R_EYE_OUT], rIn=lms[IDX.R_EYE_IN], rUp=lms[IDX.R_EYE_UP], rDn=lms[IDX.R_EYE_DN];
+    const lOut=lms[IDX.L_EYE_OUT], lIn=lms[IDX.L_EYE_IN], lUp=lms[IDX.L_EYE_UP], lDn=lms[IDX.L_EYE_DN];
+
+    const rI=meanPoint(lms,IDX.R_IRIS);
+    const lI=meanPoint(lms,IDX.L_IRIS);
+
+    const rCx=(rOut.x+rIn.x)/2, rCy=(rUp.y+rDn.y)/2;
+    const rW=Math.max(1e-6, Math.abs(rOut.x-rIn.x));
+    const rH=Math.max(1e-6, Math.abs(rDn.y-rUp.y));
+
+    const lCx=(lOut.x+lIn.x)/2, lCy=(lUp.y+lDn.y)/2;
+    const lW=Math.max(1e-6, Math.abs(lOut.x-lIn.x));
+    const lH=Math.max(1e-6, Math.abs(lDn.y-lUp.y));
+
+    // Iris normalizado dentro del ojo
+    const rIx=(rI.x-rCx)/rW, rIy=(rI.y-rCy)/rH;
+    const lIx=(lI.x-lCx)/lW, lIy=(lI.y-lCy)/lH;
+
+    // proxies cabeza
+    const nose=lms[IDX.NOSE_TIP];
+    const brow=lms[IDX.MID_BROW];
+    const chin=lms[IDX.CHIN];
+    const eyeMid={ x:(rCx+lCx)/2, y:(rCy+lCy)/2 };
+    const faceScale=Math.max(1e-6, Math.abs(chin.y-brow.y));
+    const yawN=(nose.x-eyeMid.x)/faceScale;
+    const pitchN=(nose.y-eyeMid.y)/faceScale;
+
+    // apertura ojos (parpadeo)
+    const rOpen=(rDn.y-rUp.y)/rW;
+    const lOpen=(lDn.y-lUp.y)/lW;
+
+    // combinaciones útiles
+    const iX = (rIx + lIx)/2;
+    const iY = (rIy + lIy)/2;
+    const iXdiff = (rIx - lIx);
+    const iYdiff = (rIy - lIy);
+
+    // Escalamos iris para que tenga “peso” (si no, queda muy chico vs otros términos)
+    const IRIS_GAIN = 3.2;
+
+    return [
+      IRIS_GAIN*rIx, IRIS_GAIN*rIy, IRIS_GAIN*lIx, IRIS_GAIN*lIy,
+      IRIS_GAIN*iX,  IRIS_GAIN*iY,  IRIS_GAIN*iXdiff, IRIS_GAIN*iYdiff,
+      yawN, pitchN,
+      rOpen, lOpen,
+      yawN*yawN, pitchN*pitchN, yawN*pitchN, // términos no lineales simples
+    ];
+  }
+
+  function confidenceFromLandmarks(lms){
+    try{
+      const f=featureVector(lms);
+      if(f.some(v=>!isFinite(v))) return 0;
+      // rOpen/lOpen están al final-4 y -3
+      const rOpen=f[f.length-4], lOpen=f[f.length-3];
+      const open=(rOpen+lOpen)/2;
+      const c=clamp((open-0.02)/0.06, 0, 1);
+      return c;
+    }catch{ return 0; }
+  }
+
+  // Normalización z-score para que la regresión “sienta” variación
+  function computeNormParams(X){
+    const N=X.length, F=X[0].length;
+    const m=Array(F).fill(0), s=Array(F).fill(0);
+    for(const row of X) for(let j=0;j<F;j++) m[j]+=row[j];
+    for(let j=0;j<F;j++) m[j]/=N;
+    for(const row of X) for(let j=0;j<F;j++) s[j]+= (row[j]-m[j])*(row[j]-m[j]);
+    for(let j=0;j<F;j++){
+      s[j]=Math.sqrt(s[j]/Math.max(1,N-1));
+      if(!isFinite(s[j]) || s[j]<1e-6) s[j]=1;
+    }
+    return {m,s};
+  }
+  function applyNorm(f){
+    if(!mu || !sigma) return f;
+    const out=f.slice();
+    for(let i=0;i<out.length;i++) out[i]=(out[i]-mu[i])/sigma[i];
+    return out;
+  }
+
+  // ---------- Calibration plan ----------
+  function makePlan(use9){
+    const m=0.08; // un poco más cerca a los bordes ahora que no hay HUD encima
+    const pts4=[
+      {u:m,v:m,name:"Sup-Izq"},
+      {u:1-m,v:m,name:"Sup-Der"},
+      {u:m,v:1-m,name:"Inf-Izq"},
+      {u:1-m,v:1-m,name:"Inf-Der"},
+    ];
+    if(!use9) return pts4;
+
+    return [
+      {u:m,v:m,name:"Sup-Izq"},
+      {u:0.5,v:m,name:"Arriba"},
+      {u:1-m,v:m,name:"Sup-Der"},
+      {u:m,v:0.5,name:"Izquierda"},
+      {u:0.5,v:0.5,name:"Centro"},
+      {u:1-m,v:0.5,name:"Derecha"},
+      {u:m,v:1-m,name:"Inf-Izq"},
+      {u:0.5,v:1-m,name:"Abajo"},
+      {u:1-m,v:1-m,name:"Inf-Der"},
+    ];
+  }
+
+  function updatePointUI(){
+    kvPoints.textContent = `${captured.length}/${calibPlan.length || 0}`;
+    kvPointName.textContent = (isCalibrating && calibPlan[calibIndex]) ? calibPlan[calibIndex].name : "—";
+  }
+
+  // ---------- MediaPipe pipeline ----------
+  async function startCamera(){
+    if(camera) return;
+
+    setStatus("Pidiendo permiso de cámara…","warn");
+    headline.textContent="Cámara";
+
+    faceMesh = new FaceMesh({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/${file}`
+    });
+
+    faceMesh.setOptions({
+      maxNumFaces: 1,
+      refineLandmarks: true,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5
+    });
+
+    faceMesh.onResults(onResults);
+
+    camera = new Camera(video, {
+      onFrame: async () => {
+        if(!running) return;
+        await faceMesh.send({ image: video });
+      },
+      width: 1280,
+      height: 720
+    });
+
+    try{
+      await camera.start();
+      running = true;
+      btnCalibrate.disabled = false;
+      btnReset.disabled = false;
+      setStatus("Cámara lista. Calibra para mejor precisión.","ok");
+      kvNote.textContent = "Calibra antes de usar";
+      resizeCanvas();
+      requestAnimationFrame(drawLoop);
+    }catch(e){
+      console.error(e);
+      setStatus("No se pudo acceder a la cámara (usa HTTPS/localhost).","bad");
+      kvNote.textContent = "Permiso de cámara falló";
+    }
+  }
+
+  function onResults(res){
+    if(res.multiFaceLandmarks && res.multiFaceLandmarks.length){
+      latestLandmarks = res.multiFaceLandmarks[0];
+      latestConfidence = confidenceFromLandmarks(latestLandmarks);
+      kvTracking.textContent = latestConfidence > 0.45 ? "OK" : (latestConfidence > 0.25 ? "Medio" : "Bajo / parpadeo");
+    } else {
+      latestLandmarks = null;
+      latestConfidence = 0;
+      kvTracking.textContent = "Sin cara";
+    }
+  }
+
+  function drawLoop(){
+    if(!running) return;
+
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    ctx.clearRect(0,0,w,h);
+
+    // Debug ojo: IMPORTANTE no espejar X aquí (ya está espejado por CSS)
+    if(latestLandmarks){
+      ctx.save();
+      ctx.globalAlpha = 0.30;
+      ctx.lineWidth = 2;
+
+      const p = (id) => {
+        const lm = latestLandmarks[id];
+        return { x: lm.x * w, y: lm.y * h };
+      };
+
+      const re = [IDX.R_EYE_OUT, IDX.R_EYE_UP, IDX.R_EYE_IN, IDX.R_EYE_DN].map(p);
+      const le = [IDX.L_EYE_OUT, IDX.L_EYE_UP, IDX.L_EYE_IN, IDX.L_EYE_DN].map(p);
+
+      ctx.strokeStyle = "rgba(255,255,255,0.65)";
+      ctx.beginPath(); ctx.moveTo(re[0].x,re[0].y); re.slice(1).forEach(pt=>ctx.lineTo(pt.x,pt.y)); ctx.closePath(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(le[0].x,le[0].y); le.slice(1).forEach(pt=>ctx.lineTo(pt.x,pt.y)); ctx.closePath(); ctx.stroke();
+
+      ctx.restore();
+    }
+
+    if(!isCalibrating && latestLandmarks){
+      // Anti-parpadeo: congelar
+      if(latestConfidence < blinkFreeze){
+        showPointer(px, py);
+        requestAnimationFrame(drawLoop);
+        return;
+      }
+
+      let f = featureVector(latestLandmarks);
+      f = applyNorm(f);
+
+      let uPred, vPred;
+      if(Wx && Wy){
+        uPred = predict(Wx, f);
+        vPred = predict(Wy, f);
+      } else {
+        // demo fallback
+        uPred = 0.5 + clamp(f[4] * 0.08, -0.25, 0.25);
+        vPred = 0.5 + clamp(f[5] * 0.06, -0.20, 0.20);
+      }
+
+      // “Stretch” alrededor del centro para que se mueva más/menos según sensibilidad
+      uPred = 0.5 + gain * (uPred - 0.5);
+      vPred = 0.5 + gain * (vPred - 0.5);
+
+      uPred = clamp(uPred, 0.02, 0.98);
+      vPred = clamp(vPred, 0.02, 0.98);
+
+      px = smooth*px + (1-smooth)*uPred;
+      py = smooth*py + (1-smooth)*vPred;
+
+      showPointer(px, py);
+    }
+
+    requestAnimationFrame(drawLoop);
+  }
+
+  // ---------- Calibration flow (manual click capture) ----------
+  function beginCalibration(){
+    if(!running){
+      setStatus("Inicia la cámara primero.","warn");
+      return;
+    }
+
+    isCalibrating = true;
+    Wx = Wy = null;
+    mu = sigma = null;
+
+    captured = [];
+    calibPlan = makePlan(chk9pts.checked);
+    calibIndex = 0;
+
+    btnCapture.disabled = false;
+    btnCalibrate.disabled = true;
+
+    pointerDot.style.display = "none";
+    targetDot.style.display = "block";
+
+    headline.textContent = "Calibración";
+    setStatus("Mira el punto y aprieta “Capturar punto”.","warn");
+    kvCalib.textContent = "No";
+    kvNote.textContent = "Evita pestañear al capturar";
+
+    showCurrentTarget();
+    updatePointUI();
+  }
+
+  function showCurrentTarget(){
+    if(!isCalibrating) return;
+    const pt = calibPlan[calibIndex];
+    if(!pt) return;
+    showTarget(pt.u, pt.v);
+    kvPointName.textContent = pt.name;
+  }
+
+  function captureCurrentPoint(){
+    if(!isCalibrating) return;
+    const pt = calibPlan[calibIndex];
+    if(!pt) return;
+
+    if(!latestLandmarks){
+      setStatus("No veo tu cara. Acércate o mejora luz.","bad");
+      kvNote.textContent = "Sin cara";
+      return;
+    }
+    if(latestConfidence < blinkFreeze){
+      setStatus("Tracking bajo / parpadeo. Abre los ojos y reintenta.","warn");
+      kvNote.textContent = "Parpadeo / ojo cerrado";
+      return;
+    }
+
+    // Captura por ventana corta (gatillada por tu click), promediando varias lecturas
+    const TAKE = 16;
+    const f0 = featureVector(latestLandmarks);
+    const F = f0.length;
+    const acc = Array(F).fill(0);
+    let got = 0;
+
+    const start = performance.now();
+    while (performance.now() - start < 420 && got < TAKE){
+      if(latestLandmarks && latestConfidence >= blinkFreeze){
+        const f = featureVector(latestLandmarks);
+        for(let i=0;i<F;i++) acc[i]+=f[i];
+        got++;
+      }
+    }
+
+    if(got < 8){
+      setStatus("No alcancé muestras buenas. No pestañees y reintenta.","warn");
+      kvNote.textContent = "Muestras insuficientes";
+      return;
+    }
+
+    for(let i=0;i<F;i++) acc[i] /= got;
+    captured.push({ x: pt.u, y: pt.v, f: acc });
+    calibIndex++;
+
+    updatePointUI();
+    setStatus(`Capturado ${captured.length}/${calibPlan.length}.`,"ok");
+
+    if(calibIndex >= calibPlan.length){
+      finishCalibration();
+    } else {
+      showCurrentTarget();
+      kvNote.textContent = "Mira el punto y captura";
+    }
+  }
+
+  function finishCalibration(){
+    hideTarget();
+    isCalibrating = false;
+    btnCapture.disabled = true;
+    btnCalibrate.disabled = false;
+
+    if(captured.length < 4){
+      setStatus("Muy pocos puntos. Recalibra.","bad");
+      kvNote.textContent = "Faltan puntos";
+      return;
+    }
+
+    // Build training sets
+    const Xraw = captured.map(p => p.f);
+    const yx = captured.map(p => p.x);
+    const yy = captured.map(p => p.y);
+
+    // Normalize features (z-score)
+    const ns = computeNormParams(Xraw);
+    mu = ns.m; sigma = ns.s;
+
+    const X = Xraw.map(row => applyNorm(row));
+
+    Wx = fitRidgeRegression(X, yx, ridge);
+    Wy = fitRidgeRegression(X, yy, ridge);
+
+    if(!Wx || !Wy){
+      setStatus("Falló el ajuste. Prueba 9 puntos o baja Ridge.","bad");
+      kvNote.textContent = "Ajuste falló";
+      Wx = Wy = null;
+      kvCalib.textContent = "No";
+      return;
+    }
+
+    kvCalib.textContent = "Sí";
+    kvNote.textContent = "Listo";
+    setStatus("Calibración lista. Mueve los ojos ✨","ok");
+    pointerDot.style.display = "block";
+  }
+
+  function resetAll(){
+    isCalibrating = false;
+    calibPlan = [];
+    calibIndex = 0;
+    captured = [];
+    Wx = Wy = null;
+    mu = sigma = null;
+
+    hideTarget();
+    pointerDot.style.display = "none";
+
+    btnCapture.disabled = true;
+    btnCalibrate.disabled = !running;
+
+    kvPoints.textContent = "0/0";
+    kvPointName.textContent = "—";
+    kvCalib.textContent = "No";
+    kvNote.textContent = "—";
+
+    headline.textContent = "Instrucciones";
+    setStatus("Reseteado. Calibra de nuevo para mejor precisión.","warn");
+  }
+
+  // ---------- UI events ----------
+  btnStart.addEventListener('click', startCamera);
+  btnCalibrate.addEventListener('click', beginCalibration);
+  btnCapture.addEventListener('click', captureCurrentPoint);
+  btnReset.addEventListener('click', resetAll);
+
+  rngSmooth.addEventListener('input', () => {
+    smooth = parseFloat(rngSmooth.value);
+    smoothVal.textContent = smooth.toFixed(2);
+  });
+  rngRidge.addEventListener('input', () => {
+    ridge = parseFloat(rngRidge.value);
+    ridgeVal.textContent = ridge.toFixed(2);
+  });
+  rngBlink.addEventListener('input', () => {
+    blinkFreeze = parseFloat(rngBlink.value);
+    blinkVal.textContent = blinkFreeze.toFixed(2);
+  });
+  rngGain.addEventListener('input', () => {
+    gain = parseFloat(rngGain.value);
+    gainVal.textContent = gain.toFixed(2);
+  });
+
+  // Reposicionar dots en scroll (mobile)
+  window.addEventListener('scroll', () => {
+    if(isCalibrating && calibPlan[calibIndex]){
+      const pt = calibPlan[calibIndex];
+      dotAt(targetDot, pt.u, pt.v);
+    }
+    if(pointerDot.style.display !== "none"){
+      dotAt(pointerDot, px, py);
+    }
+  }, { passive:true });
+
+  // init display
+  smoothVal.textContent = smooth.toFixed(2);
+  ridgeVal.textContent = ridge.toFixed(2);
+  blinkVal.textContent = blinkFreeze.toFixed(2);
+  gainVal.textContent = gain.toFixed(2);
+  setStatus("Listo para iniciar","");
+})();
+</script>
+</body>
+</html>

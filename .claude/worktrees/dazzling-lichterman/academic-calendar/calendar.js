@@ -16,9 +16,9 @@ const COURSE_COLORS = [
   '#ec4899', // pink
 ];
 
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DAY_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+                     'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
 /* ── CSV Parser ────────────────────────────────
    Expects: fecha,curso,descripcion  (header row optional)
@@ -204,13 +204,12 @@ function renderCalendar(events) {
     block.className = 'week-block';
 
     const table = document.createElement('table');
-    block.dataset.weekStart = week[0];
     table.innerHTML = `
       <thead>
         <tr>
-          <th>Date</th>
-          <th>Course</th>
-          <th>Description</th>
+          <th>Fecha</th>
+          <th>Curso</th>
+          <th>Descripción</th>
         </tr>
       </thead>`;
     const tbody = document.createElement('tbody');
@@ -273,18 +272,6 @@ function renderCalendar(events) {
     block.appendChild(table);
     container.appendChild(block);
   }
-
-  // Scroll to today's row, or to the nearest upcoming week
-  requestAnimationFrame(() => {
-    const todayRow = container.querySelector('tr.today');
-    if (todayRow) {
-      todayRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    } else {
-      const futureBlock = [...container.querySelectorAll('.week-block')]
-        .find(el => el.dataset.weekStart >= today);
-      if (futureBlock) futureBlock.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  });
 }
 
 function buildDateCell(d) {
@@ -306,25 +293,6 @@ function escapeHTML(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
-}
-
-/* ── Deduplication & merge ─────────────────────── */
-function deduplicateEvents(events) {
-  const seen = new Set();
-  return events.filter(e => {
-    const key = `${e.fecha}||${e.curso}||${e.descripcion}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
-function mergeAndSave(newEvents) {
-  const existing = loadEvents();
-  const merged = deduplicateEvents([...existing, ...newEvents]);
-  merged.sort((a, b) => a.fecha.localeCompare(b.fecha));
-  saveEvents(merged);
-  renderCalendar(merged);
 }
 
 /* ── Persistence ───────────────────────────────── */
@@ -366,31 +334,6 @@ window.addEventListener('appinstalled', () => {
   deferredInstallPrompt = null;
 });
 
-/* ── Add Event modal ───────────────────────────── */
-function openAddModal() {
-  const modal = document.getElementById('add-modal');
-  const dateInput = document.getElementById('addDate');
-  const courseList = document.getElementById('courseList');
-
-  // Default to today
-  dateInput.value = toDateString(new Date());
-
-  // Populate course autocomplete from existing events
-  const courses = [...new Set(loadEvents().map(e => e.curso))];
-  courseList.innerHTML = courses
-    .map(c => `<option value="${escapeHTML(c)}">`)
-    .join('');
-
-  document.getElementById('addCourse').value = '';
-  document.getElementById('addDesc').value = '';
-  modal.classList.add('open');
-  dateInput.focus();
-}
-
-function closeAddModal() {
-  document.getElementById('add-modal').classList.remove('open');
-}
-
 /* ── DOM wiring ────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
   // Initial render from storage
@@ -406,28 +349,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const events = parseCSV(ev.target.result);
-      mergeAndSave(events);
+      saveEvents(events);
+      renderCalendar(events);
     };
     reader.readAsText(file, 'UTF-8');
     csvInput.value = ''; // allow re-uploading same file
-  });
-
-  // Add event
-  document.getElementById('add-btn').addEventListener('click', openAddModal);
-  document.getElementById('addCancelBtn').addEventListener('click', closeAddModal);
-  document.getElementById('add-modal').addEventListener('click', (e) => {
-    if (e.target === document.getElementById('add-modal')) closeAddModal();
-  });
-  document.getElementById('addConfirmBtn').addEventListener('click', () => {
-    const fecha = document.getElementById('addDate').value.trim();
-    const curso = document.getElementById('addCourse').value.trim();
-    const descripcion = document.getElementById('addDesc').value.trim();
-    if (!fecha || !curso || !descripcion) {
-      alert('Please fill in all fields.');
-      return;
-    }
-    mergeAndSave([{ fecha, curso, descripcion }]);
-    closeAddModal();
   });
 
   // Clear calendar

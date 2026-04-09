@@ -7,7 +7,6 @@ const NETWORK_FIRST = [
   '/academic-calendar/index.html',
   '/academic-calendar/calendar.js',
   '/academic-calendar/manifest.json',
-  '/academic-calendar/icons/icon.png',
 ];
 
 self.addEventListener('install', (event) => {
