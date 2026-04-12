@@ -20,8 +20,17 @@ const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+// Pending delete key (set when user clicks a delete button)
+let pendingDeleteKey = null;
+
+// PDF.js worker
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
 /* ── CSV Parser ────────────────────────────────
-   Expects: fecha,curso,descripcion  (header row optional)
+   Expects: date,course,description  (header row optional)
    Returns: [{fecha: "YYYY-MM-DD", curso, descripcion}, ...]
    ─────────────────────────────────────────────── */
 function parseCSV(text) {
@@ -90,6 +99,30 @@ function normalizeDate(raw) {
     return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
   }
   return null;
+}
+
+/* ── CSV Export ────────────────────────────────
+   Downloads all events as date,course,description CSV
+   ─────────────────────────────────────────────── */
+function exportCSV() {
+  const events = loadEvents();
+  if (!events.length) return;
+
+  const rows = ['date,course,description'];
+  for (const ev of events) {
+    const date = ev.fecha;
+    const course = `"${ev.curso.replace(/"/g, '""')}"`;
+    const desc = `"${ev.descripcion.replace(/"/g, '""')}"`;
+    rows.push(`${date},${course},${desc}`);
+  }
+
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'academic-calendar.csv';
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 /* ── Color assignment ──────────────────────────
@@ -193,7 +226,7 @@ function renderCalendar(events) {
   for (const [course, color] of colorMap) {
     const item = document.createElement('div');
     item.className = 'legend-item';
-    item.innerHTML = `<span class="legend-dot" style="background:${color}"></span>${course}`;
+    item.innerHTML = `<span class="legend-dot" style="background:${color}"></span>${escapeHTML(course)}`;
     legend.appendChild(item);
   }
   legend.style.display = 'flex';
@@ -211,6 +244,7 @@ function renderCalendar(events) {
           <th>Date</th>
           <th>Course</th>
           <th>Description</th>
+          <th></th>
         </tr>
       </thead>`;
     const tbody = document.createElement('tbody');
@@ -229,7 +263,7 @@ function renderCalendar(events) {
         tr.className = 'weekend' + (isToday ? ' today' : '');
         tr.innerHTML = `
           ${dateCellHTML}
-          <td class="course-cell" colspan="2"></td>`;
+          <td class="course-cell" colspan="3"></td>`;
         tbody.appendChild(tr);
         continue;
       }
@@ -240,7 +274,8 @@ function renderCalendar(events) {
         tr.innerHTML = `
           ${dateCellHTML}
           <td class="course-cell"></td>
-          <td class="desc-cell"></td>`;
+          <td class="desc-cell"></td>
+          <td class="action-cell"></td>`;
         tbody.appendChild(tr);
         continue;
       }
@@ -250,6 +285,8 @@ function renderCalendar(events) {
         if (isToday) tr.classList.add('today');
 
         const color = colorMap.get(ev.curso) || COURSE_COLORS[0];
+        const key = escapeHTML(`${ev.fecha}||${ev.curso}||${ev.descripcion}`);
+        const deleteBtn = `<td class="action-cell"><button class="btn-delete" data-key="${key}" aria-label="Delete event">\u00d7</button></td>`;
 
         if (idx === 0) {
           // First event of this date — include date cell with rowspan
@@ -257,12 +294,14 @@ function renderCalendar(events) {
           tr.innerHTML = `
             <td class="date-cell"${rowspan}>${buildDateCellContent(d)}</td>
             <td class="course-cell" style="border-left-color:${color}">${escapeHTML(ev.curso)}</td>
-            <td class="desc-cell">${escapeHTML(ev.descripcion)}</td>`;
+            <td class="desc-cell">${escapeHTML(ev.descripcion)}</td>
+            ${deleteBtn}`;
         } else {
           // Subsequent events — skip date cell
           tr.innerHTML = `
             <td class="course-cell" style="border-left-color:${color}">${escapeHTML(ev.curso)}</td>
-            <td class="desc-cell">${escapeHTML(ev.descripcion)}</td>`;
+            <td class="desc-cell">${escapeHTML(ev.descripcion)}</td>
+            ${deleteBtn}`;
         }
 
         tbody.appendChild(tr);
@@ -391,6 +430,68 @@ function closeAddModal() {
   document.getElementById('add-modal').classList.remove('open');
 }
 
+/* ── Syllabus modal ────────────────────────────── */
+let syllabusFile = null;
+
+function openSyllabusModal() {
+  syllabusFile = null;
+  document.getElementById('syllabus-file-name').textContent = 'No file chosen';
+  document.getElementById('syllabus-form').style.display = '';
+  document.getElementById('syllabus-loading').style.display = 'none';
+  document.getElementById('syllabus-error').style.display = 'none';
+  document.getElementById('syllabus-error').textContent = '';
+  document.getElementById('syllabus-import-btn').disabled = false;
+  document.getElementById('syllabus-cancel-btn').disabled = false;
+  document.getElementById('syllabus-pdf-input').value = '';
+  document.getElementById('syllabus-modal').classList.add('open');
+}
+
+function closeSyllabusModal() {
+  document.getElementById('syllabus-modal').classList.remove('open');
+}
+
+function setSyllabusLoading(loading) {
+  document.getElementById('syllabus-form').style.display = loading ? 'none' : '';
+  document.getElementById('syllabus-loading').style.display = loading ? '' : 'none';
+  document.getElementById('syllabus-import-btn').disabled = loading;
+  document.getElementById('syllabus-cancel-btn').disabled = loading;
+}
+
+function showSyllabusError(message) {
+  const el = document.getElementById('syllabus-error');
+  el.textContent = message;
+  el.style.display = '';
+}
+
+/* ── PDF text extraction ───────────────────────── */
+async function extractPDFText(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  let text = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(item => item.str).join(' ') + '\n';
+  }
+  return text;
+}
+
+/* ── Syllabus Lambda API call ──────────────────── */
+async function callSyllabusAPI(syllabusText) {
+  const response = await fetch(
+    'https://q76nxtzq7wkhftvxekdqttg56e0bygvz.lambda-url.us-east-1.on.aws/',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ syllabus_text: syllabusText }),
+    }
+  );
+  const data = await response.json();
+  const body = JSON.parse(data.body);
+  if (data.statusCode === 200) return body;
+  throw new Error(body.response_message || 'Processing failed');
+}
+
 /* ── DOM wiring ────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
   // Initial render from storage
@@ -412,7 +513,10 @@ document.addEventListener('DOMContentLoaded', () => {
     csvInput.value = ''; // allow re-uploading same file
   });
 
-  // Add event
+  // CSV export
+  document.getElementById('export-btn').addEventListener('click', exportCSV);
+
+  // Add event modal
   document.getElementById('add-btn').addEventListener('click', openAddModal);
   document.getElementById('addCancelBtn').addEventListener('click', closeAddModal);
   document.getElementById('add-modal').addEventListener('click', (e) => {
@@ -431,19 +535,102 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Clear calendar
-  const modal   = document.getElementById('clear-modal');
+  const clearModal = document.getElementById('clear-modal');
   document.getElementById('clear-btn').addEventListener('click', () => {
-    modal.classList.add('open');
+    clearModal.classList.add('open');
   });
   document.getElementById('modal-cancel').addEventListener('click', () => {
-    modal.classList.remove('open');
+    clearModal.classList.remove('open');
   });
   document.getElementById('modal-confirm').addEventListener('click', () => {
-    modal.classList.remove('open');
+    clearModal.classList.remove('open');
     clearEvents();
   });
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) modal.classList.remove('open');
+  clearModal.addEventListener('click', (e) => {
+    if (e.target === clearModal) clearModal.classList.remove('open');
+  });
+
+  // Delete single event (event delegation on container)
+  const deleteModal = document.getElementById('delete-modal');
+  document.getElementById('calendar-container').addEventListener('click', (e) => {
+    const btn = e.target.closest('.btn-delete');
+    if (!btn) return;
+    pendingDeleteKey = btn.dataset.key;
+    deleteModal.classList.add('open');
+  });
+  document.getElementById('delete-cancel-btn').addEventListener('click', () => {
+    deleteModal.classList.remove('open');
+    pendingDeleteKey = null;
+  });
+  document.getElementById('delete-confirm-btn').addEventListener('click', () => {
+    deleteModal.classList.remove('open');
+    if (!pendingDeleteKey) return;
+    const events = loadEvents().filter(e =>
+      `${e.fecha}||${e.curso}||${e.descripcion}` !== pendingDeleteKey
+    );
+    pendingDeleteKey = null;
+    saveEvents(events);
+    renderCalendar(events);
+  });
+  deleteModal.addEventListener('click', (e) => {
+    if (e.target === deleteModal) {
+      deleteModal.classList.remove('open');
+      pendingDeleteKey = null;
+    }
+  });
+
+  // Add Class (syllabus) modal
+  document.getElementById('add-class-btn').addEventListener('click', openSyllabusModal);
+  document.getElementById('syllabus-cancel-btn').addEventListener('click', closeSyllabusModal);
+  document.getElementById('syllabus-modal').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('syllabus-modal')) closeSyllabusModal();
+  });
+
+  const syllabusPdfInput = document.getElementById('syllabus-pdf-input');
+  document.getElementById('syllabus-pick-btn').addEventListener('click', () => {
+    syllabusPdfInput.click();
+  });
+
+  syllabusPdfInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    syllabusFile = file;
+    document.getElementById('syllabus-file-name').textContent = file.name;
+    document.getElementById('syllabus-error').style.display = 'none';
+  });
+
+  document.getElementById('syllabus-import-btn').addEventListener('click', async () => {
+    if (!syllabusFile) {
+      showSyllabusError('Please choose a PDF file first.');
+      return;
+    }
+
+    setSyllabusLoading(true);
+
+    try {
+      const text = await extractPDFText(syllabusFile);
+      const result = await callSyllabusAPI(text);
+
+      const newEvents = result.assignments
+        .filter(a => a.date)
+        .map(a => ({
+          fecha: a.date,
+          curso: result.class_name,
+          descripcion: a.description,
+        }));
+
+      if (!newEvents.length) {
+        setSyllabusLoading(false);
+        showSyllabusError('No assignments with dates were found in this syllabus.');
+        return;
+      }
+
+      mergeAndSave(newEvents);
+      closeSyllabusModal();
+    } catch (err) {
+      setSyllabusLoading(false);
+      showSyllabusError(err.message || 'An error occurred. Please try again.');
+    }
   });
 
   // Install button
