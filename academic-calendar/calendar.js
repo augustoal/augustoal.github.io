@@ -612,7 +612,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const result = await callSyllabusAPI(text);
 
       const newEvents = result.assignments
-        .filter(a => a.date)
+        .filter(a => a.date && a.date !== 'null')
         .map(a => ({
           fecha: a.date,
           curso: result.class_name,
