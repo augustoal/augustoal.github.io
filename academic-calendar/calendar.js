@@ -293,13 +293,13 @@ function renderCalendar(events) {
           const rowspan = dayEvents.length > 1 ? ` rowspan="${dayEvents.length}"` : '';
           tr.innerHTML = `
             <td class="date-cell"${rowspan}>${buildDateCellContent(d)}</td>
-            <td class="course-cell" style="border-left-color:${color}">${escapeHTML(ev.curso)}</td>
+            <td class="course-cell" style="box-shadow:inset 3px 0 0 ${color}">${escapeHTML(ev.curso)}</td>
             <td class="desc-cell">${escapeHTML(ev.descripcion)}</td>
             ${deleteBtn}`;
         } else {
           // Subsequent events — skip date cell
           tr.innerHTML = `
-            <td class="course-cell" style="border-left-color:${color}">${escapeHTML(ev.curso)}</td>
+            <td class="course-cell" style="box-shadow:inset 3px 0 0 ${color}">${escapeHTML(ev.curso)}</td>
             <td class="desc-cell">${escapeHTML(ev.descripcion)}</td>
             ${deleteBtn}`;
         }
@@ -461,6 +461,17 @@ function showSyllabusError(message) {
   const el = document.getElementById('syllabus-error');
   el.textContent = message;
   el.style.display = '';
+}
+
+function showToast(message) {
+  const existing = document.getElementById('error-toast');
+  if (existing) existing.remove();
+  const toast = document.createElement('div');
+  toast.id = 'error-toast';
+  toast.className = 'toast-error';
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
 }
 
 /* ── PDF text extraction ───────────────────────── */
@@ -629,7 +640,8 @@ document.addEventListener('DOMContentLoaded', () => {
       closeSyllabusModal();
     } catch (err) {
       setSyllabusLoading(false);
-      showSyllabusError(err.message || 'An error occurred. Please try again.');
+      closeSyllabusModal();
+      showToast(err.message || 'An error occurred. Please try again.');
     }
   });
 
