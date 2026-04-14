@@ -125,6 +125,50 @@ function exportCSV() {
   URL.revokeObjectURL(url);
 }
 
+function exportICS() {
+  const events = loadEvents();
+  if (!events.length) return;
+
+  const escape = s => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Academic Calendar//EN',
+    'CALSCALE:GREGORIAN',
+    'X-WR-CALNAME:Academic Calendar',
+  ];
+
+  for (const ev of events) {
+    const [y, m, d] = ev.fecha.split('-');
+    const dateStr = `${y}${m}${d}`;
+    // DTEND is the next day for all-day events
+    const end = new Date(Number(y), Number(m) - 1, Number(d) + 1);
+    const endStr = `${end.getFullYear()}${String(end.getMonth()+1).padStart(2,'0')}${String(end.getDate()).padStart(2,'0')}`;
+    const uid = `${ev.fecha}-${ev.curso}-${ev.descripcion}`.replace(/[^a-zA-Z0-9]/g, '').slice(0, 60) + '@acadcal';
+
+    lines.push(
+      'BEGIN:VEVENT',
+      `UID:${uid}`,
+      `DTSTART;VALUE=DATE:${dateStr}`,
+      `DTEND;VALUE=DATE:${endStr}`,
+      `SUMMARY:${escape(ev.descripcion)}`,
+      `DESCRIPTION:${escape(ev.curso)}`,
+      'END:VEVENT',
+    );
+  }
+
+  lines.push('END:VCALENDAR');
+
+  const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'academic-calendar.ics';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 /* ── Color assignment ──────────────────────────
    Assigns a stable color per course (by first appearance order)
    ─────────────────────────────────────────────── */
@@ -526,6 +570,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // CSV export
   document.getElementById('export-btn').addEventListener('click', exportCSV);
+  document.getElementById('export-ics-btn').addEventListener('click', exportICS);
 
   // Add event modal
   document.getElementById('add-btn').addEventListener('click', openAddModal);
