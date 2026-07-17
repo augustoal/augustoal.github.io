@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tetris – Augusto Ariztia</title>
+  <link rel="stylesheet" href="../assets/css/styles.css" />
+  <style>
+    .backlink { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); text-decoration: none; margin: 8px 0 18px; }
+    .backlink:hover { color: var(--text); }
+    .page-title { margin: 0 0 8px; font-size: 1.5rem; font-weight: 650; letter-spacing: -0.01em; }
+    .intro { color: var(--muted); margin: 0 0 18px; max-width: 70ch; }
+    .game-shell { display: grid; grid-template-columns: minmax(280px, 420px) minmax(240px, 1fr); gap: 18px; align-items: start; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow); padding: 18px; }
+    .board-wrap { position: relative; display: grid; place-items: center; }
+    #board { width: min(100%, 360px); aspect-ratio: 10 / 20; background: #08111f; border: 1px solid var(--border); border-radius: 14px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04); touch-action: none; }
+    .overlay { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; text-align: center; padding: 20px; }
+    .overlay-panel { max-width: 280px; border: 1px solid rgba(255,255,255,0.14); border-radius: 16px; padding: 16px; background: rgba(8,17,31,0.82); color: #e9edf5; backdrop-filter: blur(8px); }
+    .overlay-panel strong { display: block; font-size: 1.15rem; margin-bottom: 6px; }
+    .hidden { display: none; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+    .stat { border: 1px solid var(--border); border-radius: 14px; padding: 10px; background: rgba(163,31,52,0.06); }
+    .stat span { display: block; color: var(--muted); font-size: 0.78rem; }
+    .stat strong { font-size: 1.2rem; }
+    .side-grid { display: grid; gap: 14px; }
+    #next { width: 120px; height: 120px; background: #08111f; border-radius: 12px; border: 1px solid var(--border); }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+    .level-picker { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.9rem; }
+    .level-picker input { width: 72px; border-radius: 10px; border: 1px solid var(--border); background: transparent; color: var(--text); padding: 8px 10px; font: inherit; }
+    .level-picker input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .level-picker input:disabled { opacity: 0.55; cursor: not-allowed; }
+    .btn { cursor: pointer; border-radius: 12px; border: 1px solid var(--border); background: transparent; color: var(--text); padding: 9px 12px; font-size: 0.9rem; }
+    .btn:hover { border-color: rgba(163,31,52,0.45); }
+    .help { color: var(--muted); font-size: 0.93rem; margin: 0; }
+    .help kbd { border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 6px; padding: 1px 6px; color: var(--text); background: rgba(127,127,127,0.08); }
+    .scores { margin: 0; padding-left: 22px; color: var(--muted); }
+    .scores strong { color: var(--text); }
+    .empty-score { color: var(--muted); margin: 0; }
+    @media (max-width: 820px) { .game-shell { grid-template-columns: 1fr; } .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <h1>Augusto Ariztia</h1>
+      <p class="tagline">MIT Sloan MBA • Product + AI • Cambridge, MA</p>
+    </div>
+    <div class="header-actions">
+      <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle theme">◐</button>
+      <a class="social-link" href="https://www.linkedin.com/in/augusto-ariztia-leniz-13189a149" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn profile"><img src="../assets/logos/li-logo.png" alt="LinkedIn" /></a>
+    </div>
+  </header>
+  <main>
+    <a class="backlink" href="../">← Back to projects</a>
+    <h2 class="page-title">Tetris</h2>
+    <p class="intro">A small browser Tetris game with local high scores, built as its own independent section.</p>
+    <section class="game-shell" aria-label="Tetris game">
+      <div class="card board-wrap">
+        <canvas id="board" width="300" height="600" aria-label="Tetris board"></canvas>
+        <div class="overlay" id="overlay"><div class="overlay-panel"><strong>Ready?</strong><span>Press Start or hit Enter. Use the arrow keys to play.</span></div></div>
+      </div>
+      <aside class="side-grid">
+        <div class="card">
+          <div class="stats">
+            <div class="stat"><span>Score</span><strong id="score">0</strong></div>
+            <div class="stat"><span>Lines</span><strong id="lines">0</strong></div>
+            <div class="stat"><span>Level</span><strong id="level">1</strong></div>
+          </div>
+          <p class="help"><kbd>←</kbd>/<kbd>→</kbd> move, <kbd>↓</kbd> soft drop, <kbd>↑</kbd> rotate, <kbd>Space</kbd> hard drop, <kbd>P</kbd> pause.</p>
+          <div class="controls"><label class="level-picker" for="startLevel">Starting level <input id="startLevel" type="number" min="1" max="20" value="1" inputmode="numeric" /></label><button class="btn" id="startBtn" type="button">Start</button><button class="btn" id="pauseBtn" type="button">Pause</button><button class="btn" id="resetScoresBtn" type="button">Reset high scores</button></div>
+        </div>
+        <div class="card"><h3>Next piece</h3><canvas id="next" width="120" height="120" aria-label="Next Tetris piece"></canvas></div>
+        <div class="card"><h3>Local high scores</h3><ol class="scores" id="scores"></ol><p class="empty-score hidden" id="emptyScore">No scores yet. Set the first one!</p></div>
+      </aside>
+    </section>
+  </main>
+  <footer>© 2026 Augusto Ariztia</footer>
+  <script src="../assets/js/theme.js"></script>
+  <script src="tetris.js"></script>
+</body>
+</html>
