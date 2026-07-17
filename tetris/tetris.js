@@ -20,12 +20,15 @@ const overlay = document.getElementById('overlay');
 const startBtn = document.getElementById('startBtn');
 const pauseBtn = document.getElementById('pauseBtn');
 const resetScoresBtn = document.getElementById('resetScoresBtn');
+const startLevelInput = document.getElementById('startLevel');
 const scoresEl = document.getElementById('scores');
 const emptyScoreEl = document.getElementById('emptyScore');
 
-let board, active, next, score, lines, level, dropMs, lastTime, dropCounter, running, paused, animationId;
+let board, active, next, score, lines, level, startingLevel, dropMs, lastTime, dropCounter, running, paused, animationId;
 
 function emptyBoard() { return Array.from({ length: ROWS }, () => Array(COLS).fill(null)); }
+function normalizeStartLevel() { const parsed = Number.parseInt(startLevelInput.value, 10); return Number.isNaN(parsed) ? 1 : Math.min(Math.max(parsed, 1), 20); }
+function dropSpeedForLevel(value) { return Math.max(90, 800 - (value - 1) * 65); }
 function randomPiece() { const type = Object.keys(SHAPES)[Math.floor(Math.random() * 7)]; return { type, shape: SHAPES[type].map(r => [...r]), x: Math.floor(COLS / 2) - 2, y: 0 }; }
 function rotate(shape) { return shape[0].map((_, i) => shape.map(row => row[i]).reverse()); }
 function collides(piece, dx = 0, dy = 0, shape = piece.shape) {
@@ -39,8 +42,8 @@ function clearLines() {
   if (cleared) {
     score += [0, 100, 300, 500, 800][cleared] * level;
     lines += cleared;
-    level = Math.floor(lines / 10) + 1;
-    dropMs = Math.max(90, 800 - (level - 1) * 65);
+    level = startingLevel + Math.floor(lines / 10);
+    dropMs = dropSpeedForLevel(level);
   }
 }
 function spawn() {
@@ -70,9 +73,9 @@ function draw() {
 function drawNext() { nextCtx.clearRect(0,0,120,120); nextCtx.fillStyle = '#08111f'; nextCtx.fillRect(0,0,120,120); if (!next) return; const size = 24; const ox = (5 - next.shape[0].length) / 2; const oy = (5 - next.shape.length) / 2; next.shape.forEach((row,y)=>row.forEach((cell,x)=>cell && drawCell(nextCtx, x + ox, y + oy, COLORS[next.type], size))); }
 function updateStats() { scoreEl.textContent = score; linesEl.textContent = lines; levelEl.textContent = level; }
 function loop(time = 0) { const delta = time - lastTime; lastTime = time; if (running && !paused) { dropCounter += delta; if (dropCounter > dropMs) { softDrop(); dropCounter = 0; } draw(); } animationId = requestAnimationFrame(loop); }
-function startGame() { cancelAnimationFrame(animationId); board = emptyBoard(); score = 0; lines = 0; level = 1; dropMs = 800; dropCounter = 0; lastTime = 0; running = true; paused = false; active = null; next = randomPiece(); overlay.classList.add('hidden'); startBtn.textContent = 'Restart'; pauseBtn.textContent = 'Pause'; spawn(); updateStats(); loop(); }
+function startGame() { cancelAnimationFrame(animationId); startingLevel = normalizeStartLevel(); startLevelInput.value = startingLevel; startLevelInput.disabled = true; board = emptyBoard(); score = 0; lines = 0; level = startingLevel; dropMs = dropSpeedForLevel(level); dropCounter = 0; lastTime = 0; running = true; paused = false; active = null; next = randomPiece(); overlay.classList.add('hidden'); startBtn.textContent = 'Restart'; pauseBtn.textContent = 'Pause'; spawn(); updateStats(); loop(); }
 function togglePause() { if (!running) return; paused = !paused; pauseBtn.textContent = paused ? 'Resume' : 'Pause'; overlay.classList.toggle('hidden', !paused); overlay.querySelector('strong').textContent = 'Paused'; overlay.querySelector('span').textContent = 'Press P or Resume to keep playing.'; }
-function gameOver() { running = false; saveScore(score); renderScores(); overlay.classList.remove('hidden'); overlay.querySelector('strong').textContent = 'Game over'; overlay.querySelector('span').textContent = `Score: ${score}. Press Enter or Start to play again.`; }
+function gameOver() { running = false; startLevelInput.disabled = false; saveScore(score); renderScores(); overlay.classList.remove('hidden'); overlay.querySelector('strong').textContent = 'Game over'; overlay.querySelector('span').textContent = `Score: ${score}. Press Enter or Start to play again.`; }
 function getScores() { try { return JSON.parse(localStorage.getItem(SCORE_KEY)) || []; } catch { return []; } }
 function saveScore(value) { const scores = [...getScores(), { score: value, date: new Date().toLocaleDateString() }].sort((a,b) => b.score - a.score).slice(0, 5); localStorage.setItem(SCORE_KEY, JSON.stringify(scores)); }
 function renderScores() { const scores = getScores(); scoresEl.innerHTML = scores.map(item => `<li><strong>${item.score}</strong> <span>(${item.date})</span></li>`).join(''); emptyScoreEl.classList.toggle('hidden', scores.length > 0); }
@@ -86,4 +89,5 @@ document.addEventListener('keydown', (event) => {
 startBtn.addEventListener('click', startGame);
 pauseBtn.addEventListener('click', togglePause);
 resetScoresBtn.addEventListener('click', () => { localStorage.removeItem(SCORE_KEY); renderScores(); });
-board = emptyBoard(); score = 0; lines = 0; level = 1; running = false; paused = false; renderScores(); updateStats(); draw(); drawNext();
+startLevelInput.addEventListener('input', () => { if (!running) { level = normalizeStartLevel(); updateStats(); } });
+board = emptyBoard(); score = 0; lines = 0; startingLevel = normalizeStartLevel(); level = startingLevel; running = false; paused = false; renderScores(); updateStats(); draw(); drawNext();

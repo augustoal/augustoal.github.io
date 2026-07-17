@@ -25,6 +25,10 @@
     .side-grid { display: grid; gap: 14px; }
     #next { width: 120px; height: 120px; background: #08111f; border-radius: 12px; border: 1px solid var(--border); }
     .controls { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+    .level-picker { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.9rem; }
+    .level-picker input { width: 72px; border-radius: 10px; border: 1px solid var(--border); background: transparent; color: var(--text); padding: 8px 10px; font: inherit; }
+    .level-picker input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .level-picker input:disabled { opacity: 0.55; cursor: not-allowed; }
     .btn { cursor: pointer; border-radius: 12px; border: 1px solid var(--border); background: transparent; color: var(--text); padding: 9px 12px; font-size: 0.9rem; }
     .btn:hover { border-color: rgba(163,31,52,0.45); }
     .help { color: var(--muted); font-size: 0.93rem; margin: 0; }
@@ -63,7 +67,7 @@
             <div class="stat"><span>Level</span><strong id="level">1</strong></div>
           </div>
           <p class="help"><kbd>←</kbd>/<kbd>→</kbd> move, <kbd>↓</kbd> soft drop, <kbd>↑</kbd> rotate, <kbd>Space</kbd> hard drop, <kbd>P</kbd> pause.</p>
-          <div class="controls"><button class="btn" id="startBtn" type="button">Start</button><button class="btn" id="pauseBtn" type="button">Pause</button><button class="btn" id="resetScoresBtn" type="button">Reset high scores</button></div>
+          <div class="controls"><label class="level-picker" for="startLevel">Starting level <input id="startLevel" type="number" min="1" max="20" value="1" inputmode="numeric" /></label><button class="btn" id="startBtn" type="button">Start</button><button class="btn" id="pauseBtn" type="button">Pause</button><button class="btn" id="resetScoresBtn" type="button">Reset high scores</button></div>
         </div>
         <div class="card"><h3>Next piece</h3><canvas id="next" width="120" height="120" aria-label="Next Tetris piece"></canvas></div>
         <div class="card"><h3>Local high scores</h3><ol class="scores" id="scores"></ol><p class="empty-score hidden" id="emptyScore">No scores yet. Set the first one!</p></div>
