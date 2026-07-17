@@ -1,7 +1,7 @@
 const COLS = 10;
 const ROWS = 20;
 const BLOCK = 30;
-const SCORE_KEY = 'cata-tetris-high-scores';
+const SCORE_KEY = 'tetris-high-scores';
 const COLORS = { I:'#38bdf8', J:'#60a5fa', L:'#fb923c', O:'#facc15', S:'#4ade80', T:'#c084fc', Z:'#fb7185' };
 const SHAPES = {
   I:[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
